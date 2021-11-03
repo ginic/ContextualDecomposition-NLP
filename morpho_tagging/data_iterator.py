@@ -100,7 +100,10 @@ class Tag:
         self.counts = np.zeros((len(self.values),))
 
     def get_tag_index(self, value):
-        return self.values.index(value)
+        if (value in self.values):
+            return self.values.index(value)
+        else:
+            return self.values.index('_na_')
 
     def add(self, name):
         self.counts[self.get_tag_index(name)] += 1
@@ -190,18 +193,12 @@ def load_morphdata_ud(paras, tag_path="../data/", char_vocab=None):
                     #     if "=" in field:
                     #         parts = field.split("=")
                     #         field_dict[parts[0].lower()] = parts[1].lower()
-
+                    
                     field_dict['pos'] = fields[0].lower() # even for ambiguous cases just take the first one -> for A|S take A
 
                     for tag_name, tag_element in all_labels.items():                        
                         if tag_name in field_dict:
-                            try:
-                                tag_value_index = tag_element.get_tag_index(field_dict[tag_name])
-                            except:
-                                print(tag_element.values)
-                                print(field_dict[tag_name])
-                                print(type(field_dict[tag_name]))
-
+                            tag_value_index = tag_element.get_tag_index(field_dict[tag_name])                
                             y[tag_element.index] = tag_value_index
                             if name == "train":
                                 tag_element.add(field_dict[tag_name])
