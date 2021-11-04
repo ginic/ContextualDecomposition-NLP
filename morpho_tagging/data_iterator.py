@@ -100,7 +100,10 @@ class Tag:
         self.counts = np.zeros((len(self.values),))
 
     def get_tag_index(self, value):
-        return self.values.index(value)
+        if (value in self.values):
+            return self.values.index(value)
+        else:
+            return self.values.index('_na_')
 
     def add(self, name):
         self.counts[self.get_tag_index(name)] += 1
@@ -121,13 +124,11 @@ def read_tags(path, lower=False):
 
         tag_dict[tagname] = Tag(tagname, index, tag_values)
     f.close()
-
     return tag_dict
 
 
 def load_morphdata_ud(paras, tag_path="../data/", char_vocab=None):
-    all_labels = read_tags(os.path.join(tag_path, paras.language + "_tags_ud_filtered.txt"), lower=True)
-
+    all_labels = read_tags(os.path.join(tag_path, paras.language + "_tags_ud_filtered.txt"), lower=True)  # all_labels = {'pos': iterator(num, s, a-pro, etc)}
     train_name = os.path.join(paras.data_path_ud, paras.language + "-ud-train.conllu")
     dev_name = os.path.join(paras.data_path_ud, paras.language + "-ud-dev.conllu")
     test_name = os.path.join(paras.data_path_ud, paras.language + "-ud-test.conllu")
@@ -140,7 +141,7 @@ def load_morphdata_ud(paras, tag_path="../data/", char_vocab=None):
     word_to_char = {}
     unique_pairs = {}
 
-    max_length = 100
+    max_length = 200  # changed from 100 -> 200
     max_length_counter = [0]
 
     def parse_corpus(filename, name):
@@ -149,7 +150,7 @@ def load_morphdata_ud(paras, tag_path="../data/", char_vocab=None):
         l_data = []
         y_data = []
 
-        with codecs.open(filename) as f:
+        with codecs.open(filename, 'r', 'utf-8') as f:
             for line in f.readlines():
                 if line.startswith("#"):
                     continue
@@ -159,7 +160,7 @@ def load_morphdata_ud(paras, tag_path="../data/", char_vocab=None):
                 if len(parts) > 1:
 
                     word = parts[1].strip()
-                    field_line = parts[5].strip()
+                    field_line = parts[3].strip()
 
                     if paras.unique_words:
                         if word in unique_pairs and unique_pairs[word] == field_line:
@@ -169,11 +170,10 @@ def load_morphdata_ud(paras, tag_path="../data/", char_vocab=None):
                             unique_pairs[word] = field_line
 
                     fields = field_line.split("|")
-
-                    unique_pairs[parts[1].strip()] = parts[5].strip()
-
+                    
+                    unique_pairs[parts[1].strip()] = parts[3].strip()
                     x = np.zeros((max_length,), dtype=np.int32)
-                    y = np.zeros((len(all_labels),), dtype=np.int32)
+                    y = np.zeros((len(all_labels),), dtype=np.int32)  #array of length one because we have just POS
 
                     if word not in word_to_char:
                         if name == "train" and not fixed_vocab:
@@ -189,16 +189,16 @@ def load_morphdata_ud(paras, tag_path="../data/", char_vocab=None):
                     x[0:length] = np.asarray(word_to_char[word])
 
                     field_dict = {}
-                    for field in fields:
-                        if "=" in field:
-                            parts = field.split("=")
-                            field_dict[parts[0].lower()] = parts[1].lower()
+                    # for field in fields:
+                    #     if "=" in field:
+                    #         parts = field.split("=")
+                    #         field_dict[parts[0].lower()] = parts[1].lower()
+                    
+                    field_dict['pos'] = fields[0].lower() # even for ambiguous cases just take the first one -> for A|S take A
 
-                    for tag_name, tag_element in all_labels.items():
-
+                    for tag_name, tag_element in all_labels.items():                        
                         if tag_name in field_dict:
-                            tag_value_index = tag_element.get_tag_index(field_dict[tag_name])
-
+                            tag_value_index = tag_element.get_tag_index(field_dict[tag_name])                
                             y[tag_element.index] = tag_value_index
                             if name == "train":
                                 tag_element.add(field_dict[tag_name])

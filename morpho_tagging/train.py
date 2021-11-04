@@ -10,8 +10,8 @@ import codecs
 import pickle
 import sys
 sys.path.append("../")
-import morpho_tagging.networks as networks
-import morpho_tagging.data_iterator as data_iterator
+import networks as networks
+import data_iterator as data_iterator
 
 
 np.random.seed(2345)
@@ -41,7 +41,7 @@ parser.add_argument("--dropout_frac", type=float, default=0., help="Optional dro
 
 
 # dataset
-parser.add_argument("--language", type=str, default="fi", help="Finnish (fi), Swedish (sv) or Spanish (es)")
+parser.add_argument("--language", type=str, default="ru", help="Russian (ru)")
 parser.add_argument("--unique_words", type=int, default=1, help="Use unique words rather than all words")
 parser.add_argument("--data_path_ud", type=str, required=True,
                     help="Where can I find the datafiles of UD1.4: *-ud-train.conllu, "
