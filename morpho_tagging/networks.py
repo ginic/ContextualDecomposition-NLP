@@ -5,9 +5,9 @@ from torch.autograd import Variable
 
 
 class Tagger(nn.Module):
-    def __init__(self, paras):
+    def __init__(self, paras, is_cuda_available):
         super(Tagger, self).__init__()
-
+        self.is_cuda_available = is_cuda_available
         self.paras = paras
         pad_index = self.paras.pad_index
         self.char_embeddings = nn.Embedding(self.paras.char_vocab_size, self.paras.char_embedding_size,
@@ -52,8 +52,10 @@ class Tagger(nn.Module):
     def forward(self, sentences, lengths):
 
         # character input to word embeddings
-
-        sentence_inputs_chars = Variable(torch.LongTensor(sentences).cuda())
+        if self.is_cuda_available:
+            sentence_inputs_chars = Variable(torch.LongTensor(sentences).cuda())
+        else:
+            sentence_inputs_chars = Variable(torch.LongTensor(sentences).cpu())
 
         if self.paras.char_type == "bilstm":
 

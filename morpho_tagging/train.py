@@ -124,7 +124,7 @@ def main(paras):
 
     # make model
     is_cuda_available = torch.cuda.is_available()
-    model = networks.Tagger(paras)
+    model = networks.Tagger(paras, is_cuda_available)
     model.apply(networks.init_ortho)
     if is_cuda_available:
         model.cuda()
