@@ -4,6 +4,7 @@ import torch.optim as optim
 from torch.autograd import Variable
 import sklearn.metrics
 import argparse
+from datetime import datetime
 import numpy as np
 import os
 import time
@@ -101,7 +102,8 @@ def predict(model, data_iterator, is_cuda_available, is_verbose, paras, labels=N
         if is_verbose:
             print(f"Tagset {i} classification report:")
             if labels:
-                print(sklearn.metrics.classification_report(gold_labels[i], all_predictions[i], zero_division=0, labels=labels[i]))
+                index_labels = list(range(len(labels[i])))
+                print(sklearn.metrics.classification_report(gold_labels[i], all_predictions[i], zero_division=0, labels=index_labels, target_names = labels[i]))
             else:
                 print(sklearn.metrics.classification_report(gold_labels[i], all_predictions[i], zero_division=0))
 
@@ -172,10 +174,10 @@ def main(paras):
     print(paras)
     print("Started training")
     for epoch in range(paras.num_epochs):
-
         ##################
         # training       #
         ##################
+        start = datetime.now()
         total_loss = 0
 
         model.train()
@@ -200,8 +202,10 @@ def main(paras):
 
             sum(loss).backward()
             optimizer.step()
+            end = datetime.now()
 
         print("Epoch %s: train loss %s" % (epoch + 1, total_loss / train_it.n_batches))
+        print("Epoch train time in minutes:", (end - start).total_seconds()/60)
 
         ##################
         # validation     #
@@ -223,7 +227,7 @@ def main(paras):
     print("Loading best model from", best_path)
     model.load_state_dict(torch.load(best_path))
     print("Evaluating on test set")
-    labels = list(tag_dict.values())
+    labels = [t.values for t in tag_dict.values()]
     test_correct_valid, test_accs = predict(model, test_it, is_cuda_available, True, paras, labels=labels)
 
 
