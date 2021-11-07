@@ -52,7 +52,7 @@ parser.add_argument("--save_file", type=str, default="tagger_")
 
 paras = parser.parse_args()
 
-def predict(model, data_iterator, is_cuda_available, is_verbose, paras):
+def predict(model, data_iterator, is_cuda_available, is_verbose, paras, labels=None):
     """Uses the given model and paramters to predict labels.
     Prints accuracy, count of correct labels and classification metrics for predications on the data iterator.
     Returns list of accuracies (for each tag) and list of counts of correct labels.
@@ -62,6 +62,7 @@ def predict(model, data_iterator, is_cuda_available, is_verbose, paras):
     :param is_cuda_available: boolean, whether or not to use GPU
     :param is_verbose: boolean, True to print full classification report rather than just accuracy
     :param data_iterator: data_iterator.DataIterator object that yields sentences, tags and lengths of sentences
+    :param labels: optional list of lists of tagset labels correpsonding to the classes for each tagset, used for classification report
     """
     model.eval()
 
@@ -92,13 +93,18 @@ def predict(model, data_iterator, is_cuda_available, is_verbose, paras):
 
     print("Total valid tags in dataset:", total_valid)
     accuracies = []
+
     for i in range(len(paras.tagset_size)):
         tag_acc = sklearn.metrics.accuracy_score(gold_labels[i], all_predictions[i])
         accuracies.append(tag_acc)
         print(f"Tagset {i} accuracy:", tag_acc)
         if is_verbose:
             print(f"Tagset {i} classification report:")
-            print(sklearn.metrics.classification_report(gold_labels[i], all_predictions[i]))
+            if labels:
+                print(sklearn.metrics.classification_report(gold_labels[i], all_predictions[i], zero_division=0, target_names=labels[i]))
+            else:
+                print(sklearn.metrics.classification_report(gold_labels[i], all_predictions[i], zero_division=0))
+
 
     return correct_valid, accuracies
 
@@ -217,7 +223,8 @@ def main(paras):
     print("Loading best model from", best_path)
     model.load_state_dict(torch.load(best_path))
     print("Evaluating on test set")
-    test_correct_valid, test_accs = predict(model, test_it, is_cuda_available, True, paras)
+    labels = list(tag_dict.values())
+    test_correct_valid, test_accs = predict(model, test_it, is_cuda_available, True, paras, labels=labels)
 
 
 if __name__ == "__main__":
