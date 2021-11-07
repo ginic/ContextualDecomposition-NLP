@@ -101,7 +101,7 @@ def predict(model, data_iterator, is_cuda_available, is_verbose, paras, labels=N
         if is_verbose:
             print(f"Tagset {i} classification report:")
             if labels:
-                print(sklearn.metrics.classification_report(gold_labels[i], all_predictions[i], zero_division=0, target_names=labels[i]))
+                print(sklearn.metrics.classification_report(gold_labels[i], all_predictions[i], zero_division=0, labels=labels[i]))
             else:
                 print(sklearn.metrics.classification_report(gold_labels[i], all_predictions[i], zero_division=0))
 
