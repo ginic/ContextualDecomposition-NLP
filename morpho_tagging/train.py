@@ -14,7 +14,6 @@ sys.path.append("../")
 import networks as networks
 import data_iterator as data_iterator
 
-# TODO clean up arguments
 
 np.random.seed(2345)
 
@@ -86,8 +85,8 @@ def predict(model, data_iterator, is_cuda_available, is_verbose, paras):
                 predictions = torch.max(tag_scores[tagtype_index],dim=1)[1].cuda().data.numpy()
             else:
                 predictions = torch.max(tag_scores[tagtype_index],dim=1)[1].cpu().data.numpy()
+            all_predictions[tagtype_index].extend(predictions)
 
-            all_predictions[tagtype_index].extend(all_predictions)
             correct_valid[tagtype_index]+=sum(np.equal(gt,predictions))
         total_valid+=tags.shape[0]
 
