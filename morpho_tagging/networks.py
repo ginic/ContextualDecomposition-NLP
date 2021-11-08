@@ -10,6 +10,8 @@ class Tagger(nn.Module):
         self.is_cuda_available = is_cuda_available
         self.paras = paras
         pad_index = self.paras.pad_index
+        # TODO Must really spend time with https://pytorch.org/docs/stable/generated/torch.nn.Embedding.html?highlight=embedding#torch.nn.Embedding to understand what's going on here
+        # Entries at padding_idx do not contribute to the gradient
         self.char_embeddings = nn.Embedding(self.paras.char_vocab_size, self.paras.char_embedding_size,
                                             padding_idx=pad_index)
         self.char_size = 0
@@ -23,6 +25,7 @@ class Tagger(nn.Module):
 
         elif paras.char_type == "conv":
 
+            # Characters go multiple convolutional filters
             self.char_convs = nn.ModuleList()
             for i, filter_size in enumerate(paras.char_filter_sizes):
                 conv = nn.Sequential()
@@ -45,13 +48,15 @@ class Tagger(nn.Module):
 
         self.embed_dropout = nn.Dropout(p=paras.dropout_frac)
 
+        # A list of fully connected networks going from the hidden layer to each output tagset (we only have 1, POS, to worry about though)
         self.hidden2tag = nn.ModuleList()
         for i in range(len(paras.tagset_size)):
             self.hidden2tag.append(nn.Linear(classification_in_size, paras.tagset_size[i]))
 
     def forward(self, sentences, lengths):
 
-        # character input to word embeddings
+        # TODO May also have to edit this to handle language modeling appropriately
+        # character input to word embeddings?
         if self.is_cuda_available:
             sentence_inputs_chars = Variable(torch.LongTensor(sentences).cuda())
         else:
@@ -59,10 +64,15 @@ class Tagger(nn.Module):
 
         if self.paras.char_type == "bilstm":
 
+            # Embeddings for words in each sentence
             emb = self.char_embeddings(sentence_inputs_chars)
+
+            # Used for handling sequences of variable length
             packed_input = pack_padded_sequence(emb, lengths, batch_first=True)
+
             lstm_out, (char_hidden_out, char_cell_out) = self.char_lstm(packed_input)
 
+            # Concatenate forward and backward hidden states into a single vector for each word
             char_hidden_out = char_hidden_out.transpose(1, 0).contiguous()
             char_hidden_out = char_hidden_out.view(char_hidden_out.size(0), -1)
 
@@ -70,6 +80,7 @@ class Tagger(nn.Module):
 
         elif self.paras.char_type == "conv":
 
+            # This is the 'max over time filter' where the word's representation is selected
             x = self.char_embeddings(sentence_inputs_chars)
             emb = x.unsqueeze(1)
             conv_outs = []
@@ -79,16 +90,19 @@ class Tagger(nn.Module):
                 x = torch.max(x.view(x_size[0], x_size[1], -1), dim=2)[0]
                 conv_outs.append(x)
 
+            # Concatenates the given sequence of seq tensors in the given dimension
             char_emb = torch.cat(conv_outs, dim=1)
 
         elif self.paras.char_type == "sum":
             x = self.char_embeddings(sentence_inputs_chars)
             char_emb = torch.sum(x, dim=1)
 
-        # word level classification
 
+        # Perform dropout on character embedding weights
         x = self.embed_dropout(char_emb)
 
+        # word level classification
+        # TODO This is what we have to keep in mind in order to predict the next word or tag
         tag_space = []
         for classifier in self.hidden2tag:
             tag_space.append(classifier(x))
