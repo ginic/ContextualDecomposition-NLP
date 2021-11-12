@@ -7,7 +7,7 @@ import os
 
 from sklearn import metrics
 
-import data_iterator as data_iterator
+from . import data_iterator
 
 def classify_and_report(x, y, overall_pos_counts, wordform_pos_counter, labels):
     """Classify POS tags for x data using the naive strategy and

@@ -1,11 +1,56 @@
 import codecs
+from collections import Counter
 import numpy as np
 import math
 import os
 
 batching_seed = np.random.RandomState(1234)
 
-# TODO Probably also need to introduce start/end of sentence 'word
+
+class WordVocab:
+    """Index all the words in the corpus for next word predictions and caching char embeddings
+    """
+    def __init__(self, char_vocab):
+        # Reserved index for special words
+        self.unknown_index = 0
+        self.start_sentence_index = 1
+        self.end_sentence_index = 2
+        # starts at 3 for remaining vocab words
+        self.indexer = 3
+        self.word_to_index = {}
+        # Cache training and prediction time word embeddings
+        self.word_to_char_embedding = {}
+        self.char_vocab = char_vocab
+
+    def lookup_word(self, word, is_train=False):
+        """If a word is missing from the vocab, its added.
+        Return (index for word, its character embedding) and increment its count in the corpus.
+        """
+        if word not in self.word_to_index:
+            # Unseen words at train time get added
+            if is_train:
+                self.word_to_index[word] = self.indexer
+                word_index = self.indexer
+                self.indexer += 1
+            # Unseen words at prediction time
+            else:
+                word_index = self.unknown_index
+        else:
+            word_index = self.word_to_index[word]
+
+        # Word's character representation isn't cached
+        if word not in self.word_to_char_embedding:
+            if is_train:
+                char_repr = self.char_vocab.add_string(word, add_eow=True, add_sow=True)
+                self.word_to_char_embedding[word] = char_repr
+            else:
+                char_repr = self.char_vocab.string_to_index(word, add_eow=True, add_sow=True)
+                self.word_to_char_embedding[word] = char_repr
+        else:
+            char_repr = self.word_to_char_embedding[word]
+
+        return word_index, char_repr
+
 
 class CharacterGramVocab:
     def __init__(self,gram=1):
@@ -18,14 +63,32 @@ class CharacterGramVocab:
         self.special_token_index = 2
         self.char_to_index = {self.pad_string: self.pad_index,self.unk_string: self.unk_index,self.special_token_string:self.special_token_index}
         self.vocab = [self.pad_string,self.unk_string,self.special_token_string]
-        self.index_to_count = {}
+        self.index_to_count = Counter()
 
+        # end of word and start of word chars
         self.eow_string = "<eow>"
         self.sow_string = "<sow>"
 
-
         self.gram = gram
 
+        # end of sentence and start of sentence chars (also their own 'tokens')
+        self.end_sent_marker = "<eos>"
+        self.start_sent_marker = "<sos>"
+
+    def get_char_index_and_increment(self, c):
+        """Checks the vocab index for char's index and adds it if missing.
+        Increment the count for that character.
+        Returns the characters index.
+        """
+        if c not in self.vocab:
+            char_index = len(self.vocab)
+            self.char_to_index[c] = char_index
+            self.vocab.append(c)
+        else:
+            char_index = self.char_to_index[c]
+
+        self.index_to_count[char_index]+=1
+        return char_index
 
     def add_string(self, string_value, add_eow=False, add_sow=False):
         result = []
@@ -36,23 +99,12 @@ class CharacterGramVocab:
             string_chars.append(self.eow_string)
 
         for i in range(len(string_chars)-self.gram+1):
-
             c = "".join(string_chars[i:i+self.gram])
-
-            if c not in self.vocab:
-                index = len(self.vocab)
-                self.char_to_index[c] = index
-                self.index_to_count[index] = 1
-                self.vocab.append(c)
-                result.append(index)
-            else:
-                char_index = self.char_to_index[c]
-                result.append(char_index)
-                self.index_to_count[char_index] += 1
+            result.append(self.get_char_index_and_increment(c))
 
         return result
 
-    def string_to_index(self, string_value,add_eow=False,add_sow=False):
+    def string_to_index(self, string_value, add_eow=False, add_sow=False):
         result = []
 
         string_chars = list(string_value)
@@ -73,7 +125,6 @@ class CharacterGramVocab:
         return result
 
     def index_to_char(self, index):
-
         if isinstance(index, int):
             if index < len(self.vocab):
                 return self.vocab[index]
@@ -93,7 +144,21 @@ class CharacterGramVocab:
     def get_special_token_index(self):
         return self.char_to_index[self.special_token_string]
 
+    def mark_sentence(self, start=True):
+        """
+        Return sentence marking indices (as a list, just like adding a word).
+        :param start: boolean - True to mark start of sentence, false to mark end
+        """
+        if start:
+            marker = self.start_sent_marker
+        else:
+            marker = self.end_sent_marker
+
+        return [self.get_char_index_and_increment(marker)]
+
+
 class Tag:
+    # Note that this assumes _na_ will always be the 0th index in the tags file
     def __init__(self, name, index, values):
         self.name = name
         self.index = index
@@ -128,29 +193,32 @@ def read_tags(path, lower=False):
     return tag_dict
 
 
-def load_morphdata_ud(paras, tag_path="../data/", char_vocab=None):
-    all_labels = read_tags(os.path.join(tag_path, paras.language + "_tags_ud_filtered.txt"), lower=True)  # all_labels = {'pos': iterator(num, s, a-pro, etc)}
+def load_morphdata_ud(paras, tag_path="../data/", char_vocab=None,  use_sentence_markers=False):
+    """
+    """
+    all_labels = read_tags(os.path.join(tag_path, paras.language + "_tags_ud_filtered.txt"), lower=True,)  # all_labels = {'pos': iterator(num, s, a-pro, etc)}
     train_name = os.path.join(paras.data_path_ud, paras.language + "-ud-train.conllu")
     dev_name = os.path.join(paras.data_path_ud, paras.language + "-ud-dev.conllu")
     test_name = os.path.join(paras.data_path_ud, paras.language + "-ud-test.conllu")
 
     if char_vocab is None:
         char_vocab = CharacterGramVocab(gram=paras.char_gram)
-        fixed_vocab = False
-    else:
-        fixed_vocab = True
-    word_to_char = {}
+
+    # Used for caching representations of words
+    word_vocab = WordVocab(char_vocab)
     unique_pairs = {}
 
+    # Max length of the word
     max_length = 200  # changed from 100 -> 200
     max_length_counter = [0]
 
     def parse_corpus(filename, name):
-
         x_data = []
         l_data = []
         y_data = []
+        next_word_data = [] # Next word for LM predictions
 
+        first_elem=True
         with codecs.open(filename, 'r', 'utf-8') as f:
             for line in f.readlines():
                 if line.startswith("#"):
@@ -159,6 +227,32 @@ def load_morphdata_ud(paras, tag_path="../data/", char_vocab=None):
                 parts = line.strip().split("\t")
 
                 if len(parts) > 1:
+                    idx_in_sentence = int(parts[0].strip())
+                    # Add end of last sentence, beginning of next sentence markers
+                    if use_sentence_markers and idx_in_sentence==1:
+                        # not the first sentence in data, add end sentence marker for previous sentence
+                        if not first_elem:
+                            # End of last sentence
+                            x = np.zeros((max_length,), dtype=np.int32)
+                            x[0:1] = np.asarray(char_vocab.mark_sentence(start=False))
+                            y = np.zeros((len(all_labels),), dtype=np.int32)
+                            x_data.append(x)
+                            y_data.append(y)
+                            l_data.append(1)
+                            next_word_data.append(word_vocab.end_sentence_index)
+
+                        # Beginning of sentence
+                        x = np.zeros((max_length,), dtype=np.int32)
+                        x[0:1] = np.asarray(char_vocab.mark_sentence(start=True))
+                        y = np.zeros((len(all_labels),), dtype=np.int32)
+                        x_data.append(x)
+                        y_data.append(y)
+                        l_data.append(1)
+                        # First entry doesn't get added to next word prediction
+                        if first_elem:
+                            first_elem = False
+                        else:
+                            next_word_data.append(word_vocab.start_sentence_index)
 
                     word = parts[1].strip()
                     field_line = parts[3].strip()
@@ -174,20 +268,16 @@ def load_morphdata_ud(paras, tag_path="../data/", char_vocab=None):
 
                     unique_pairs[parts[1].strip()] = parts[3].strip()
                     x = np.zeros((max_length,), dtype=np.int32)
-                    y = np.zeros((len(all_labels),), dtype=np.int32)  #array of length one because we have just POS
+                    y = np.zeros((len(all_labels),), dtype=np.int32)  # array of length one because we have just POS
 
-                    if word not in word_to_char:
-                        if name == "train" and not fixed_vocab:
-                            res = char_vocab.add_string(word, add_eow=True, add_sow=True)
-                        else:
-                            res = char_vocab.string_to_index(word, add_eow=True, add_sow=True)
-                        word_to_char[word] = res
+                    # Caching the representations of words and indexing them for next word predictions
+                    is_train = (name=="train")
+                    word_index, res = word_vocab.lookup_word(word, is_train)
+                    if len(res) > max_length_counter[0]:
+                        max_length_counter[0] = len(res)
 
-                        if len(res) > max_length_counter[0]:
-                            max_length_counter[0] = len(res)
-
-                    length = len(word_to_char[word])
-                    x[0:length] = np.asarray(word_to_char[word])
+                    length = len(res)
+                    x[0:length] = np.asarray(res)
 
                     field_dict = {}
                     # for field in fields:
@@ -210,18 +300,34 @@ def load_morphdata_ud(paras, tag_path="../data/", char_vocab=None):
                     x_data.append(x)
                     l_data.append(length)
                     y_data.append(y)
+                    # First entry doesn't get added to next word prediction
+                    if first_elem:
+                        first_elem = False
+                    else:
+                        next_word_data.append(word_index)
+
+        # add last end of sentence marker
+        if use_sentence_markers:
+            x = np.zeros((max_length,), dtype=np.int32)
+            x[0:1] = np.asarray(char_vocab.mark_sentence(start=False))
+            y = np.zeros((len(all_labels),), dtype=np.int32)
+            x_data.append(x)
+            y_data.append(y)
+            l_data.append(1)
+            next_word_data.append(word_vocab.end_sentence_index)
 
         x = np.vstack(x_data)
         lengths = np.asarray(l_data)
         y = np.vstack(y_data)
+        y_next_word = np.array(next_word_data)
 
-        return x[:, :max_length_counter[0]], lengths, y
+        return x[:, :max_length_counter[0]], lengths, y, y_next_word
 
-    train_x, train_lengths, train_y = parse_corpus(train_name, "train")
-    dev_x, dev_lengths, dev_y = parse_corpus(dev_name, "dev")
-    test_x, test_lengths, test_y = parse_corpus(test_name, "test")
+    train_x, train_lengths, train_y, train_y_next_word = parse_corpus(train_name, "train")
+    dev_x, dev_lengths, dev_y, dev_y_next_word = parse_corpus(dev_name, "dev")
+    test_x, test_lengths, test_y, test_y_next_word = parse_corpus(test_name, "test")
 
-    return train_x, train_lengths, train_y, dev_x, dev_lengths, dev_y, test_x, test_lengths, test_y, char_vocab, all_labels
+    return train_x, train_lengths, train_y, train_y_next_word, dev_x, dev_lengths, dev_y, dev_y_next_word, test_x, test_lengths, test_y, test_y_next_word, char_vocab, all_labels
 
 
 class DataIterator:
@@ -232,6 +338,8 @@ class DataIterator:
         self.y = y
 
         self.batch_size = batch_size
+
+        # Actually number of words!
         self.number_of_sentences = x.shape[0]
         if train:
             self.n_batches = self.number_of_sentences // self.batch_size

@@ -1,27 +1,21 @@
 # Introduction
-This project contains the necessary files to reproduce the paper:
-["Explaining Character-Aware Neural Networks for Word-Level Prediction:
-Do They Discover Linguistic Rules?"](https://arxiv.org/abs/1808.09551). This [paper](http://aclweb.org/anthology/D18-1365) was presented at [EMNLP 2018](https://aclanthology.coli.uni-saarland.de/events/emnlp-2018).
-
-An example is given in the figure below. It shows the individual character contributions of the Spanish adjective económicas. The character
-a has the highest positive (red) contribution for predicting the label Gender=Fem, and the character s for
-predicting the label Number=Plur. This coincides with our linguistic knowledge of Spanish.
-
-![alt text](images/example_spanish.png "Example of contextual decomposition for a Spanish word.")
-
+This repository is a component of our final project for CS 682: Neural Networks: A Modern Introduction at UMass Amherst in Fall 2021. The code from ["Explaining Character-Aware Neural Networks for Word-Level Prediction:
+Do They Discover Linguistic Rules?"](http://aclweb.org/anthology/D18-1365) served as the basis for the project and this fork their code modified for our purposes. See [our final project's main repository](https://github.com/ginic/CS682_NNs_Nerual_Char_Models_Russian) for more details.
 
 # Framework
-All code was implemented in Python 3.5. We used Pytorch 0.4.0.. 
+All code was implemented in Python 3.7. We used Pytorch 1.10.0.
 
 # Data
-The Universal Dependencies v1.4 dataset should be downloaded from http://universaldependencies.org/.
-In the supplementary material pdf, additional information can be found on the exact preprocessing.
+Our training data was from the [Russian National Corpus](https://ruscorpora.ru/new/en/index.html) and [OpenCorpora](https://www.kaggle.com/rtatman/opencorpora-russian) converted to CONLL-U format. It should also work with any [Universal Dependency Treebank](https://universaldependencies.org) data.
 
 All files of type *-ud-train.conllu, *-ud-dev.conllu and *-ud-test.conllu, should be place in a single data folder DATA_PATH_UD.
 
 All other necessary files are provided in the data-folder of this project.
 
 # Training
+- TODO Add details about pretraining vs fine tuning
+- TODO Test set evaluation is done at the end of tuning
+
 Open a shell a move into the 'morpho_tagging' folder.
 The following command can be used to train a model on the UD dataset.
 
@@ -40,6 +34,8 @@ A full overview of all the parameters can be obtained using:
 CUDA_VISIBLE_DEVICES=0 python3 train.py --help
 ```
 # Evaluation
+- TODO Update evalution instructions for our work
+
 Move into the folder 'contextual_decomposition'.
 Run the following command to evaluate the contextual decomposition for CNNs.
 ```
@@ -53,13 +49,15 @@ The parameters to provide are:
 The output will be an overview of the correct/incorrect predictions and attributions of the trained model.
 This is the same algorithm as used in the paper for evaluation.
 
-# Visualization
-For visualization, one can use the CDConv class which can be found in contextual_decomposition/cd_conv.py.
-
-The file 'example.py' contains an example on how to obtain the contribution values.
+# Unit tests
+Unit tests can be run using `pytest` from within the `morpho_tagging` directory, e.g.
+```
+$ cd morpho_tagging
+$ pytest
+```
 
 # Citation
-If you like this repository and use our code, please cite the following publication:
+Our code is based on following publication's:
 
 ```
 @InProceedings{D18-1365,

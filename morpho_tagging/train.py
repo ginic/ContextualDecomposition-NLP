@@ -10,10 +10,9 @@ import os
 import time
 import codecs
 import pickle
-import sys
-sys.path.append("../")
-import networks as networks
-import data_iterator as data_iterator
+
+from . import networks
+from . import data_iterator
 
 
 np.random.seed(2345)
@@ -44,14 +43,18 @@ parser.add_argument("--dropout_frac", type=float, default=0., help="Optional dro
 
 # dataset
 parser.add_argument("--language", type=str, default="ru", help="Russian (ru)")
-parser.add_argument("--unique_words", type=int, default=1, help="Use unique words rather than all words")
+parser.add_argument("--unique_words", type=int, default=0, help="Use unique words rather than all words")
 parser.add_argument("--data_path_ud", type=str, required=True,
                     help="Where can I find the datafiles of UD1.4: *-ud-train.conllu, "
                          "*-ud-dev.conllu and *-ud-test.conllu")
-parser.add_argument("--save_dir", type=str, required=True,help="Directory to save models")
+parser.add_argument("--save_dir", type=str, required=False,help="Directory to save models")
 parser.add_argument("--save_file", type=str, default="tagger_")
 
-paras = parser.parse_args()
+# Added arguments for pre-training & fine-tuning
+parser.add_argument("--training_type", type=str, choices=["lm", "pos"], help="To pre-train a language model, use 'lm'. To fine-tune a pre-trained model for part-of-speech tagging, use 'pos'" )
+parser.add_argument("--pretrained_model", type=str, help="Path to a pre-trained model when you are fine-tuning a for POS tagging.")
+
+
 
 def predict(model, data_iterator, is_cuda_available, is_verbose, paras, labels=None):
     """Uses the given model and paramters to predict labels.
@@ -232,4 +235,5 @@ def main(paras):
 
 
 if __name__ == "__main__":
+    paras = parser.parse_args()
     main(paras)

@@ -1,0 +1,20 @@
+# sent_id = en_partut-ud-9
+# text = Any use of the work other than as authorized under this license or copyright law is prohibited.
+1	Any	any	DET	DI	PronType=Ind	2	det	_	_
+2	use	use	NOUN	S	Number=Sing	17	nsubj:pass	_	_
+3	of	of	ADP	E	_	5	case	_	_
+4	the	the	DET	RD	Definite=Def|PronType=Art	5	det	_	_
+5	work	work	NOUN	S	Number=Sing	2	nmod	_	_
+6	other	other	ADJ	A	Degree=Pos	2	amod	_	_
+7	than	than	SCONJ	CS	_	9	mark	_	_
+8	as	as	ADP	E	_	9	mark	_	_
+9	authorized	authorize	VERB	V	Tense=Past|VerbForm=Part	6	advcl	_	_
+10	under	under	ADP	E	_	12	case	_	_
+11	this	this	DET	DD	Number=Sing|PronType=Dem	12	det	_	_
+12	license	license	NOUN	S	Number=Sing	9	obl	_	_
+13	or	or	CCONJ	CC	_	15	cc	_	_
+14	copyright	copyright	NOUN	S	Number=Sing	15	nmod	_	_
+15	law	law	NOUN	S	Number=Sing	12	conj	_	_
+16	is	be	AUX	VA	Mood=Ind|Number=Sing|Person=3|Tense=Pres|VerbForm=Fin	17	aux:pass	_	_
+17	prohibited	prohibit	VERB	V	Tense=Past|VerbForm=Part	0	root	_	SpaceAfter=No
+18	.	.	PUNCT	FS	_	17	punct	_	_
