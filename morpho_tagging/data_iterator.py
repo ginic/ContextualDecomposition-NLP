@@ -5,6 +5,7 @@ import os
 
 batching_seed = np.random.RandomState(1234)
 
+# TODO Probably also need to introduce start/end of sentence 'word
 
 class CharacterGramVocab:
     def __init__(self,gram=1):
@@ -170,7 +171,7 @@ def load_morphdata_ud(paras, tag_path="../data/", char_vocab=None):
                             unique_pairs[word] = field_line
 
                     fields = field_line.split("|")
-                    
+
                     unique_pairs[parts[1].strip()] = parts[3].strip()
                     x = np.zeros((max_length,), dtype=np.int32)
                     y = np.zeros((len(all_labels),), dtype=np.int32)  #array of length one because we have just POS
@@ -193,12 +194,12 @@ def load_morphdata_ud(paras, tag_path="../data/", char_vocab=None):
                     #     if "=" in field:
                     #         parts = field.split("=")
                     #         field_dict[parts[0].lower()] = parts[1].lower()
-                    
+
                     field_dict['pos'] = fields[0].lower() # even for ambiguous cases just take the first one -> for A|S take A
 
-                    for tag_name, tag_element in all_labels.items():                        
+                    for tag_name, tag_element in all_labels.items():
                         if tag_name in field_dict:
-                            tag_value_index = tag_element.get_tag_index(field_dict[tag_name])                
+                            tag_value_index = tag_element.get_tag_index(field_dict[tag_name])
                             y[tag_element.index] = tag_value_index
                             if name == "train":
                                 tag_element.add(field_dict[tag_name])
