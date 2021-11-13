@@ -193,8 +193,12 @@ def read_tags(path, lower=False):
     return tag_dict
 
 
-def load_morphdata_ud(paras, tag_path="../data/", char_vocab=None,  use_sentence_markers=False):
+def load_morphdata_ud(paras, tag_path="../data/", char_vocab=None,  use_sentence_markers=True):
     """
+    :param paras: parameters passed along from argparse
+    :param tag_path: directory with the '{paras.language}_tags_ud_filtered.txt' file
+    :param char_vocab: optional CharacterGramVocab as a fixed vocab for the corpus (otherwise one will be created from the training data)
+    :param use_sentence_markers: True to add begin and end of sentence markers to the data
     """
     all_labels = read_tags(os.path.join(tag_path, paras.language + "_tags_ud_filtered.txt"), lower=True,)  # all_labels = {'pos': iterator(num, s, a-pro, etc)}
     train_name = os.path.join(paras.data_path_ud, paras.language + "-ud-train.conllu")
@@ -323,19 +327,21 @@ def load_morphdata_ud(paras, tag_path="../data/", char_vocab=None,  use_sentence
 
         return x[:, :max_length_counter[0]], lengths, y, y_next_word
 
+
+
     train_x, train_lengths, train_y, train_y_next_word = parse_corpus(train_name, "train")
     dev_x, dev_lengths, dev_y, dev_y_next_word = parse_corpus(dev_name, "dev")
     test_x, test_lengths, test_y, test_y_next_word = parse_corpus(test_name, "test")
 
-    return train_x, train_lengths, train_y, train_y_next_word, dev_x, dev_lengths, dev_y, dev_y_next_word, test_x, test_lengths, test_y, test_y_next_word, char_vocab, all_labels
+    return train_x, train_lengths, train_y, train_y_next_word, dev_x, dev_lengths, dev_y, dev_y_next_word, test_x, test_lengths, test_y, test_y_next_word, char_vocab, all_labels, word_vocab
 
 
 class DataIterator:
     def __init__(self, x, lengths, y, batch_size, train=False):
 
-        self.x = x
-        self.lengths = lengths
-        self.y = y
+        self.x = x # Words
+        self.lengths = lengths # Lengths of words
+        self.y = y # Labels
 
         self.batch_size = batch_size
 
@@ -360,12 +366,4 @@ class DataIterator:
             x_batch = self.x[indexes[i * self.batch_size:(i + 1) * self.batch_size],
                       :]
 
-            perm_idx = lengths.argsort(axis=0)[::-1]
-            length_sentences_ordered = lengths[perm_idx]
-
-            x_batch_ordered = x_batch[perm_idx]
-
-            y_batch_ordered = y_batch[perm_idx]
-
-            yield x_batch_ordered, y_batch_ordered, \
-                  [int(length_sentences_ordered[j]) for j in range(len(length_sentences_ordered))]
+            yield x_batch, y_batch, lengths

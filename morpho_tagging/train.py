@@ -51,8 +51,8 @@ parser.add_argument("--save_dir", type=str, required=False,help="Directory to sa
 parser.add_argument("--save_file", type=str, default="tagger_")
 
 # Added arguments for pre-training & fine-tuning
-parser.add_argument("--training_type", type=str, choices=["lm", "pos"], help="To pre-train a language model, use 'lm'. To fine-tune a pre-trained model for part-of-speech tagging, use 'pos'" )
-parser.add_argument("--pretrained_model", type=str, help="Path to a pre-trained model when you are fine-tuning a for POS tagging.")
+parser.add_argument("--training_type", type=str, choices=["lm", "label"], help="To pre-train a language model, use 'lm'. To fine-tune a pre-trained model or train a new model for for word-level labeling, use 'label'" )
+parser.add_argument("--pretrained_model", type=str, help="Path to a pre-trained model when you are fine-tuning a for POS tagging.", default=None)
 
 
 
@@ -118,12 +118,25 @@ def main(paras):
     :param paras: parameters passed along from argparse
     """
     # load data
-    train_x, train_lengths, train_y, valid_x, valid_lengths, valid_y, test_x, test_lengths, test_y, char_vocab, tag_dict \
-        = data_iterator.load_morphdata_ud(paras)
+    train_x, train_lengths, train_y_labels, train_next_word, valid_x, valid_lengths, valid_y_labels, valid_next_word, test_x, test_lengths, test_y_labels, test_next_word, char_vocab, tag_dict, word_vocab = data_iterator.load_morphdata_ud(paras)
+
+    # If you're doing language modeling, the last word in the set doesn't matter
+    if paras.training_type == "lm":
+        train_x = train_x[:-1]
+        valid_x = valid_x[:-1]
+        test_x = test_x[:-1]
+        train_y = train_next_word
+        valid_y = valid_next_word
+        test_y = test_next_word
+    else:
+        train_y = train_y_labels
+        valid_y = valid_y_labels
+        test_y = test_y_labels
 
     paras.save_file += paras.language + "_"
 
     paras.char_vocab_size = len(char_vocab.vocab)
+    paras.word_vocab_size = len(word_vocab.word_to_index)
     paras.tagset_size = dict([(t.index,len(t.values)) for t in tag_dict.values()])
     paras.pad_index = char_vocab.pad_index
 
@@ -135,17 +148,31 @@ def main(paras):
     # make model
     is_cuda_available = torch.cuda.is_available()
     model = networks.Tagger(paras, is_cuda_available)
-    model.apply(networks.init_ortho)
+
+    if paras.pretrained_model is not None:
+        # Load the pre-trained model, then update its training type parameters
+        model.load_state_dict(torch.load(paras.pretrained_model))
+        model.paras.training_type = paras.training_type
+
+    else:
+        # Instantiate new model from scratch
+        model = networks.Tagger(paras, is_cuda_available)
+        model.apply(networks.init_ortho)
+
     if is_cuda_available:
         model.cuda()
     else:
         model.cpu()
 
-    # loss function
+    # loss function {index -> pytorch loss function}
     loss_functions = {}
-    for tag_name, tag_element in tag_dict.items():
-            loss_functions[tag_element.index] = nn.CrossEntropyLoss()
-
+    if paras.training_type=="label":
+        for tag_name, tag_element in tag_dict.items():
+                loss_functions[tag_element.index] = nn.CrossEntropyLoss()
+    elif paras.training_type=="lm":
+        # TODO
+        pass
+        #loss_functions = {"lm": nn.CrossEntropyLoss()}
 
     # optimizer
     parameters = model.parameters()
@@ -170,8 +197,9 @@ def main(paras):
     file.close()
 
     # Use for tracking best model performance and save path
+    # TODO best acc vs best perplexity
     best_valid = 0
-    best_acc = []
+    best_val_scores = []
     best_path = ""
 
     print(paras)
@@ -187,17 +215,23 @@ def main(paras):
         for sentences, tags, lengths in train_it:
             # set gradients zero
             model.zero_grad()
-            # run model
+            # run model (forward pass)
             tag_scores = model(sentences, lengths)
             # calculate loss and backprop
+            # List of losses of each example for each label
             loss = []
-            for tagtype_index in range(tags.shape[1]):
-                if is_cuda_available:
-                    gt = Variable(torch.LongTensor(tags[:,tagtype_index]).cuda())
-                else:
-                    gt = Variable(torch.LongTensor(tags[:,tagtype_index]).cpu())
-                loss.append(loss_functions[tagtype_index](tag_scores[tagtype_index], gt))
+            if paras.training_type == "label":
+                for tagtype_index in range(tags.shape[1]):
+                    if is_cuda_available:
+                        gt = Variable(torch.LongTensor(tags[:,tagtype_index]).cuda())
+                    else:
+                        gt = Variable(torch.LongTensor(tags[:,tagtype_index]).cpu())
+                    loss.append(loss_functions[tagtype_index](tag_scores[tagtype_index], gt))
+            elif paras.training_type == "lm":
+                # TODO
+                pass
 
+            # TODO Is this still okay for perplexity?
             if is_cuda_available:
                 total_loss+=sum([l.data.cuda().numpy() for l in loss])
             else:
@@ -213,25 +247,35 @@ def main(paras):
         ##################
         # validation     #
         ##################
+        # TODO Validation results us perplexity
         print("Validation results")
-        correct_valid, val_accs = predict(model, valid_it, is_cuda_available, False, paras)
+        if paras.training_type == "label":
+            correct_valid, val_accs = predict(model, valid_it, is_cuda_available, False, paras)
 
-        if sum(correct_valid) > best_valid:
-            best_valid = sum(correct_valid)
-            best_path = os.path.join(paras.save_dir, save_file_model + "_best")
-            torch.save(model.state_dict(), best_path)
-            best_acc = val_accs
-            print("New best")
+            if sum(correct_valid) > best_valid:
+                best_valid = sum(correct_valid)
+                best_path = os.path.join(paras.save_dir, save_file_model + "_best")
+                torch.save(model.state_dict(), best_path)
+                best_val_scores = val_accs
+                print("New best")
+        elif paras.training_type == "lm":
+            # TODO compute perplexity
+            pass
+
 
     print("Best total number of correct tags is: %s" % (best_valid))
-    print("Best model's accuracy by tag is:", best_acc)
+    print("Best model's score by tag is:", best_val_scores)
     torch.save(model.state_dict(), os.path.join(paras.save_dir, save_file_model + "_last"))
 
     print("Loading best model from", best_path)
     model.load_state_dict(torch.load(best_path))
     print("Evaluating on test set")
     labels = [t.values for t in tag_dict.values()]
-    test_correct_valid, test_accs = predict(model, test_it, is_cuda_available, True, paras, labels=labels)
+    if paras.training_type == "label":
+        test_correct_valid, test_accs = predict(model, test_it, is_cuda_available, True, paras, labels=labels)
+    elif paras.training_type == "lm":
+        # TODO report perplexity scores for test data
+        pass
 
 
 if __name__ == "__main__":

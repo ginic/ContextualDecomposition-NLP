@@ -10,7 +10,7 @@ class Tagger(nn.Module):
         self.is_cuda_available = is_cuda_available
         self.paras = paras
         pad_index = self.paras.pad_index
-        # TODO Must really spend time with https://pytorch.org/docs/stable/generated/torch.nn.Embedding.html?highlight=embedding#torch.nn.Embedding to understand what's going on here
+        # Check https://pytorch.org/docs/stable/generated/torch.nn.Embedding.html?highlight=embedding#torch.nn.Embedding to understand what's going on here
         # Entries at padding_idx do not contribute to the gradient
         self.char_embeddings = nn.Embedding(self.paras.char_vocab_size, self.paras.char_embedding_size,
                                             padding_idx=pad_index)
@@ -31,7 +31,7 @@ class Tagger(nn.Module):
                 conv = nn.Sequential()
                 padding = (self.paras.char_filter_sizes[i] - 1, 0)
                 conv.add_module("word_conv_%s" % (i), nn.Conv2d(1, self.paras.char_number_of_filters[i], kernel_size=(
-                    self.paras.char_filter_sizes[i], self.paras.char_embedding_size),padding=padding))
+                    filter_size, self.paras.char_embedding_size),padding=padding))
                 if self.paras.char_conv_act == "relu":
                     conv.add_module("word_conv_%s_relu" % (i), nn.ReLU())
                 else:
@@ -44,14 +44,18 @@ class Tagger(nn.Module):
         elif paras.char_type == "sum":
             self.char_size += self.paras.char_embedding_size
 
-        classification_in_size = self.char_size
 
         self.embed_dropout = nn.Dropout(p=paras.dropout_frac)
 
-        # A list of fully connected networks going from the hidden layer to each output tagset (we only have 1, POS, to worry about though)
-        self.hidden2tag = nn.ModuleList()
-        for i in range(len(paras.tagset_size)):
-            self.hidden2tag.append(nn.Linear(classification_in_size, paras.tagset_size[i]))
+        if paras.training_type=="lm":
+            # TODO next word prediction
+            pass
+        elif paras.training_type=="label":
+            classification_in_size = self.char_size
+            # A list of fully connected networks going from the hidden layer to each output tagset (we only have 1, POS, to worry about though)
+            self.hidden2tag = nn.ModuleList()
+            for i in range(len(paras.tagset_size)):
+                self.hidden2tag.append(nn.Linear(classification_in_size, paras.tagset_size[i]))
 
     def forward(self, sentences, lengths):
 
@@ -102,10 +106,16 @@ class Tagger(nn.Module):
         x = self.embed_dropout(char_emb)
 
         # word level classification
-        # TODO This is what we have to keep in mind in order to predict the next word or tag
         tag_space = []
-        for classifier in self.hidden2tag:
-            tag_space.append(classifier(x))
+        if self.paras.training_type == "lm":
+            # TODO
+            pass
+
+        elif self.paras.training_type == "label":
+            # TODO This is what we have to keep in mind in order to predict the next word or tag
+
+            for classifier in self.hidden2tag:
+                tag_space.append(classifier(x))
 
         return tag_space
 
