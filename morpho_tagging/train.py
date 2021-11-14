@@ -14,6 +14,9 @@ import pickle
 from . import networks
 from . import data_iterator
 
+CLF_MODEL = "label"
+LANG_MODEL = "lm"
+
 
 np.random.seed(2345)
 
@@ -51,13 +54,77 @@ parser.add_argument("--save_dir", type=str, required=False,help="Directory to sa
 parser.add_argument("--save_file", type=str, default="tagger_")
 
 # Added arguments for pre-training & fine-tuning
-parser.add_argument("--training_type", type=str, choices=["lm", "label"], help="To pre-train a language model, use 'lm'. To fine-tune a pre-trained model or train a new model for for word-level labeling, use 'label'" )
+parser.add_argument("--training_type", type=str, choices=[CLF_MODEL, LANG_MODEL], help="To pre-train a language model, use 'lm'. To fine-tune a pre-trained model or train a new model for for word-level labeling, use 'label'" )
 parser.add_argument("--pretrained_model", type=str, help="Path to a pre-trained model when you are fine-tuning a for POS tagging.", default=None)
+parser.add_argument("--lm_hidden_layers", type=int, default=50, help="Number of hidden units in language model LSTM for next word prediction")
 
+def repackage_hidden(h):
+    """Wraps hidden states in new Tensors, to detach them from their history.
+    See https://github.com/pytorch/examples/blob/3970e068c7f18d2d54db2afee6ddd81ef3f93c24/word_language_model/main.py#L112 and https://discuss.pytorch.org/t/solved-why-we-need-to-detach-variable-which-contains-hidden-representation/1426 for more details.
+    """
+    if isinstance(h, torch.Tensor):
+        return h.detach()
+    else:
+        return tuple(repackage_hidden(v) for v in h)
+
+def check_new_best(validation_result, prev_best_score, prev_best_path, training_type, save_dir, save_file_model, model):
+    """Given the type of training and result on the validation set, decide if this is a new best model or not. If it is, save the model.
+    Returns True/False if this is the new best score, the best score overall, the path to the best model
+
+    :param validation_result: the result from the prediction function
+    :param prev_best_score: the best score thus far
+    :param prev_best_path: path to the best model thus far
+    :param training_type: "lm" or "label"
+    :param save_dir: path to save directory for model
+    :param save_file_model: prefix for model's file name
+    :param model: pytorch model with state to save
+    """
+    is_new_best = False
+    best_valid = prev_best_score
+    best_path = prev_best_path
+    if training_type==CLF_MODEL and validation_result > prev_best_score:
+        # In labeling, check raw number of correct labels
+        best_valid = validation_result
+        is_new_best = True
+    elif paras.training_type == LANG_MODEL and validation_result < prev_best_score:
+        # In languag modeling, check that the loss/perplexity has decreased
+        best_valid = validation_result
+        is_new_best = True
+
+    if is_new_best:
+        best_path = os.path.join(paras.save_dir, save_file_model + "_best")
+        torch.save(model.state_dict(), best_path)
+        print("New best")
+
+    return is_new_best, best_valid, best_path
+
+def next_word_prediction(model, data_iterator, is_cuda_available, paras):
+    """Uses the given model and parameters to predict the next word in each sentence.
+    Prints probability and perplexity of data set under the model.
+    :param model: pytorch model
+    :param paras: parameters passed via argparse
+    :param is_cuda_available: boolean, whether or not to use GPU
+    """
+    model.eval()
+    prediction_probabilities = []
+    actual_next_words = []
+    for words, tags, lengths in data_iterator:
+        actual_next_words.extend(tags)
+        model.zero_grad()
+        word_scores, hidden = model(words, lengths)[0]
+        repackage_hidden(hidden)
+        prediction_probabilities.extend(word_scores)
+
+    total_loss = nn.CrossEntropyLoss(prediction_probabilities, actual_next_words)
+    data_loss = total_loss / len(actual_next_words)
+
+    print("Loss:", data_loss, "Perplexity:", np.exp(data_loss))
+
+    return data_loss
 
 
 def predict(model, data_iterator, is_cuda_available, is_verbose, paras, labels=None):
-    """Uses the given model and paramters to predict labels.
+    """Uses the given model and parameters to predict labels.
     Prints accuracy, count of correct labels and classification metrics for predications on the data iterator.
     Returns list of accuracies (for each tag) and list of counts of correct labels.
 
@@ -77,11 +144,11 @@ def predict(model, data_iterator, is_cuda_available, is_verbose, paras, labels=N
     # Use to store predictions and labels for each tag set, then compute metrics later using all sentences
     all_predictions = [[] * len(paras.tagset_size)]
     gold_labels = [[] * len(paras.tagset_size)]
-    for sentences, tags, lengths in data_iterator:
+    for words, tags, lengths in data_iterator:
         # set gradients zero
         model.zero_grad()
         # run model
-        tag_scores = model(sentences, lengths)
+        tag_scores = model(words, lengths)
         # calculate loss and backprop
         for tagtype_index in range(tags.shape[1]):
             gt = tags[:, tagtype_index]
@@ -121,7 +188,7 @@ def main(paras):
     train_x, train_lengths, train_y_labels, train_next_word, valid_x, valid_lengths, valid_y_labels, valid_next_word, test_x, test_lengths, test_y_labels, test_next_word, char_vocab, tag_dict, word_vocab = data_iterator.load_morphdata_ud(paras)
 
     # If you're doing language modeling, the last word in the set doesn't matter
-    if paras.training_type == "lm":
+    if paras.training_type == LANG_MODEL:
         train_x = train_x[:-1]
         valid_x = valid_x[:-1]
         test_x = test_x[:-1]
@@ -153,6 +220,7 @@ def main(paras):
         # Load the pre-trained model, then update its training type parameters
         model.load_state_dict(torch.load(paras.pretrained_model))
         model.paras.training_type = paras.training_type
+        # TODO What other parameters should be updateable at fine-tuning time?
 
     else:
         # Instantiate new model from scratch
@@ -166,13 +234,11 @@ def main(paras):
 
     # loss function {index -> pytorch loss function}
     loss_functions = {}
-    if paras.training_type=="label":
+    if paras.training_type==CLF_MODEL:
         for tag_name, tag_element in tag_dict.items():
                 loss_functions[tag_element.index] = nn.CrossEntropyLoss()
-    elif paras.training_type=="lm":
-        # TODO
-        pass
-        #loss_functions = {"lm": nn.CrossEntropyLoss()}
+    elif paras.training_type==LANG_MODEL:
+        loss_functions = {LANG_MODEL: nn.CrossEntropyLoss()}
 
     # optimizer
     parameters = model.parameters()
@@ -197,9 +263,12 @@ def main(paras):
     file.close()
 
     # Use for tracking best model performance and save path
-    # TODO best acc vs best perplexity
-    best_valid = 0
-    best_val_scores = []
+    if paras.training_type == CLF_MODEL:
+        best_valid = 0
+    elif paras.training_type == LANG_MODEL:
+        best_valid = float('inf')
+    # A list of validation accuracy scores by label (only for training_type=="label")
+    best_val_accs = []
     best_path = ""
 
     print(paras)
@@ -216,22 +285,25 @@ def main(paras):
             # set gradients zero
             model.zero_grad()
             # run model (forward pass)
-            tag_scores = model(sentences, lengths)
+            tag_scores, hidden = model(sentences, lengths)
             # calculate loss and backprop
             # List of losses of each example for each label
             loss = []
-            if paras.training_type == "label":
+            if paras.training_type == CLF_MODEL:
                 for tagtype_index in range(tags.shape[1]):
                     if is_cuda_available:
                         gt = Variable(torch.LongTensor(tags[:,tagtype_index]).cuda())
                     else:
                         gt = Variable(torch.LongTensor(tags[:,tagtype_index]).cpu())
                     loss.append(loss_functions[tagtype_index](tag_scores[tagtype_index], gt))
-            elif paras.training_type == "lm":
-                # TODO
-                pass
+            elif paras.training_type == LANG_MODEL:
+                if is_cuda_available:
+                    gt = Variable(torch.LongTensor(tags).cuda())
+                else:
+                    gt = Variable(torch.LongTensor(tags).cpu())
+                loss.append(loss_functions[LANG_MODEL](tag_scores)[0], gt)
+                repackage_hidden(hidden)
 
-            # TODO Is this still okay for perplexity?
             if is_cuda_available:
                 total_loss+=sum([l.data.cuda().numpy() for l in loss])
             else:
@@ -247,35 +319,34 @@ def main(paras):
         ##################
         # validation     #
         ##################
-        # TODO Validation results us perplexity
         print("Validation results")
-        if paras.training_type == "label":
+        if paras.training_type == CLF_MODEL:
             correct_valid, val_accs = predict(model, valid_it, is_cuda_available, False, paras)
+            validation_result = sum(correct_valid)
+        elif paras.training_type == LANG_MODEL:
+            validation_result = next_word_prediction(model, valid_it, is_cuda_available)
 
-            if sum(correct_valid) > best_valid:
-                best_valid = sum(correct_valid)
-                best_path = os.path.join(paras.save_dir, save_file_model + "_best")
-                torch.save(model.state_dict(), best_path)
-                best_val_scores = val_accs
-                print("New best")
-        elif paras.training_type == "lm":
-            # TODO compute perplexity
-            pass
+        is_new_best, best_valid, best_path = check_new_best(validation_result, best_valid, best_path, paras.training_type, paras.save_dir, save_file_model, model)
 
+        if paras.training_type == CLF_MODEL and is_new_best:
+            best_val_accs = val_accs
 
-    print("Best total number of correct tags is: %s" % (best_valid))
-    print("Best model's score by tag is:", best_val_scores)
+    if paras.training_type == CLF_MODEL:
+        print("Best total number of correct tags is:", best_valid)
+        print("Best model's score by tag is:", best_val_accs)
+    elif paras.training_type == LANG_MODEL:
+        print("Best validation loss is:", best_valid)
+
     torch.save(model.state_dict(), os.path.join(paras.save_dir, save_file_model + "_last"))
 
     print("Loading best model from", best_path)
     model.load_state_dict(torch.load(best_path))
     print("Evaluating on test set")
     labels = [t.values for t in tag_dict.values()]
-    if paras.training_type == "label":
+    if paras.training_type == CLF_MODEL:
         test_correct_valid, test_accs = predict(model, test_it, is_cuda_available, True, paras, labels=labels)
-    elif paras.training_type == "lm":
-        # TODO report perplexity scores for test data
-        pass
+    elif paras.training_type == LANG_MODEL:
+        test_result = next_word_prediction(model, test_it, is_cuda_available)
 
 
 if __name__ == "__main__":

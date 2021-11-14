@@ -113,7 +113,6 @@ class CharacterGramVocab:
         if add_eow:
             string_chars.append(self.eow_string)
 
-
         for i in range(len(string_chars)-self.gram+1):
 
             c = "".join(string_chars[i:i+self.gram])
@@ -252,7 +251,8 @@ def load_morphdata_ud(paras, tag_path="../data/", char_vocab=None,  use_sentence
                         x_data.append(x)
                         y_data.append(y)
                         l_data.append(1)
-                        # First entry doesn't get added to next word prediction
+
+                        # First entry doesn't get added to next word prediction results
                         if first_elem:
                             first_elem = False
                         else:
@@ -361,9 +361,9 @@ class DataIterator:
 
         for i in range(self.n_batches):
             lengths = self.lengths[indexes[i * self.batch_size:(i + 1) * self.batch_size]]
+
             y_batch = self.y[indexes[i * self.batch_size:(i + 1) * self.batch_size]]
 
-            x_batch = self.x[indexes[i * self.batch_size:(i + 1) * self.batch_size],
-                      :]
+            x_batch = self.x[indexes[i * self.batch_size:(i + 1) * self.batch_size]]
 
             yield x_batch, y_batch, lengths

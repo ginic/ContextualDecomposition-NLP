@@ -38,29 +38,25 @@ class Tagger(nn.Module):
                     conv.add_module("word_conv_%s_tanh" % (i), nn.Tanh())
 
                 self.char_convs.append(conv)
-
                 self.char_size += self.paras.char_number_of_filters[i]
 
         elif paras.char_type == "sum":
             self.char_size += self.paras.char_embedding_size
 
-
         self.embed_dropout = nn.Dropout(p=paras.dropout_frac)
 
-        if paras.training_type=="lm":
-            # TODO next word prediction
-            pass
-        elif paras.training_type=="label":
-            classification_in_size = self.char_size
-            # A list of fully connected networks going from the hidden layer to each output tagset (we only have 1, POS, to worry about though)
-            self.hidden2tag = nn.ModuleList()
-            for i in range(len(paras.tagset_size)):
-                self.hidden2tag.append(nn.Linear(classification_in_size, paras.tagset_size[i]))
+        # Instantiate next word prediction nets
+        self.lm_lstm = nn.LSTM(self.char_size, self.paras.lm_hidden_layers)
+        self.next_word_net = nn.Linear(self.paras.lm_hidden_layers, self.paras.word_vocab_size)
+
+        # Instantiate tag classification nets (might not get used in LM training, but still need to be instantiated)
+        classification_in_size = self.char_size
+        # A list of fully connected networks going from the hidden layer to each output tagset (we only have 1, POS, to worry about though)
+        self.hidden2tag = nn.ModuleList()
+        for i in range(len(paras.tagset_size)):
+            self.hidden2tag.append(nn.Linear(classification_in_size, paras.tagset_size[i]))
 
     def forward(self, sentences, lengths):
-
-        # TODO May also have to edit this to handle language modeling appropriately
-        # character input to word embeddings?
         if self.is_cuda_available:
             sentence_inputs_chars = Variable(torch.LongTensor(sentences).cuda())
         else:
@@ -101,23 +97,24 @@ class Tagger(nn.Module):
             x = self.char_embeddings(sentence_inputs_chars)
             char_emb = torch.sum(x, dim=1)
 
-
         # Perform dropout on character embedding weights
         x = self.embed_dropout(char_emb)
 
         # word level classification
         tag_space = []
         if self.paras.training_type == "lm":
-            # TODO
-            pass
+            # next word prediction
+            lm_out, lm_hidden = self.lm_lstm(x)
+            tag_space.append(self.next_word_net(lm_out))
+
+            return lm_out, lm_hidden
 
         elif self.paras.training_type == "label":
-            # TODO This is what we have to keep in mind in order to predict the next word or tag
-
+            # Word level prediction for POS tags or other morphological categories
             for classifier in self.hidden2tag:
                 tag_space.append(classifier(x))
 
-        return tag_space
+        return tag_space, None
 
 
 def init_ortho(m):
