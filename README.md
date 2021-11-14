@@ -10,44 +10,46 @@ Our training data was from the [Russian National Corpus](https://ruscorpora.ru/n
 
 All files of type *-ud-train.conllu, *-ud-dev.conllu and *-ud-test.conllu, should be place in a single data folder DATA_PATH_UD.
 
-All other necessary files are provided in the data-folder of this project.
+All other necessary files are provided in the `data` folder of this project.
 
 # Training
-- TODO Add details about pretraining vs fine tuning
-- TODO Test set evaluation is done at the end of tuning
-
 Navigate to the root of this repo (the ContextualDecomposition-NLP folder.)
-The following command can be used to train a model on the UD dataset.
+The following command can be used to train a language model on the CONLL-U (Universal Dependency Treebank) format dataset.
+The script is in `morpho_tagging/train.py`, but you should run it as a module for the imports to work correctly.
 
+A full overview of all the parameters can be obtained using:
 ```
-CUDA_VISIBLE_DEVICES=0 python3 -m morpho_tagging.train --data_path_ud DATA_PATH_UD --save_dir SAVE_DIR --language LANGUAGE --char_type CONV_OR_BILSTM
+python -m morpho_tagging.train --help
+```
+
+## Pre-training a model
+Run the script with the `--training_type lm` option ('lm' for 'language model'). This trains the character embeddings by learning to predict the next word. You can also still use `--training_type label` to directly target the POS tags.
+```
+python -m morpho_tagging.train --training_type lm --data_path_ud DATA_PATH_UD --save_dir SAVE_DIR --language LANGUAGE --char_type CONV_OR_BILSTM --batch_size BATCH_SIZE
 ```
 
 The most important values to fill in:
 - DATA_PATH_UD: the path of the Universal Dependencies Dataset
 - SAVE_DIR: where to save the model and metadata
-- LANGUAGE: 'fi' for Finnish, 'es' for Spanish or 'sv' for Swedish. Note that models for all UD languages can be trained and decomposed.
-- CONV_OR_BILSTM: either train a CNN ('conv') or a BiLSTM ('bilstm') model
+- LANGUAGE: defaults to 'ru' for Russian, must match the language code in the .conllu file names
+- CONV_OR_BILSTM: either train a CNN ('conv') or a BiLSTM ('bilstm') model for the characters
+- BATCH_SIZE: each batch is a sequence of words, so batch size is the length of word sequences when training models, defaults to 20
 
-A full overview of all the parameters can be obtained using:
+
+## Using pre-trained character embeddings to predict POS tags
+Run the script with the `--training_type label` option and give `--pretrained_model PRETRAINED_MODEL` path and `--pretrained_settings PRETRAINED_SETTINGS` file path to the model to load.
+
 ```
-CUDA_VISIBLE_DEVICES=0 python3 train.py --help
+python -m morpho_tagging.train --data_path_ud DATA_UD_OATH --save_dir SAVE_DIR --language en --training_type label --pretrained_model PRETRAINED_MODEL --pretrained_settings PRETRAINED_SETTINGS
 ```
+
+Note that these parameters are overridden from by the pre-trained model, even if you include them in arguments: `['char_type', 'char_embedding_size', 'char_gram', 'char_rec_num_units', 'char_filter_sizes', 'char_number_of_filters', 'char_conv_act']`
+
+
 # Evaluation
-- TODO Update evalution instructions for our work
-
-Move into the folder 'contextual_decomposition'.
-Run the following command to evaluate the contextual decomposition for CNNs.
-```
-python3 evaluate_segmentation.py --settings_name tagger_LANGUAGE_settings_DATE --model_folder SAVE_DIR
-```
-
-The parameters to provide are:
-- settings_name: name of the model you have trained of the format tagger_LANGUAGE_settings_DATE
-- model_folder: SAVE_DIR value from during training
-
-The output will be an overview of the correct/incorrect predictions and attributions of the trained model.
-This is the same algorithm as used in the paper for evaluation.
+Evaluation on the test set is done as the final step in training.
+For the `--training_type lm`, perplexity is reported.
+For `--training_type label`, accuracy and a detailed classification report (precision, recall, F1) by tag value is reported.
 
 # Unit tests
 Unit tests can be run using `python -m pytest` from within the root directory.

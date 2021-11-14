@@ -1,15 +1,17 @@
+import argparse
+import codecs
+from datetime import datetime
+import json
+import os
+import time
+import pickle
+
 import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.autograd import Variable
 import sklearn.metrics
-import argparse
-from datetime import datetime
 import numpy as np
-import os
-import time
-import codecs
-import pickle
 
 from . import networks
 from . import data_iterator
@@ -43,7 +45,6 @@ parser.add_argument("--lr", type=float, default=0.001, help="Learning rate")
 parser.add_argument("--num_epochs", type=int, default=100, help="Number of epochs to run")
 parser.add_argument("--dropout_frac", type=float, default=0., help="Optional dropout for embeddings")
 
-
 # dataset
 parser.add_argument("--language", type=str, default="ru", help="Russian (ru)")
 parser.add_argument("--unique_words", type=int, default=0, help="Use unique words rather than all words.")
@@ -56,6 +57,7 @@ parser.add_argument("--save_file", type=str, default="tagger_")
 # Added arguments for pre-training & fine-tuning
 parser.add_argument("--training_type", type=str, choices=[CLF_MODEL, LANG_MODEL], help="To pre-train a language model, use 'lm'. To fine-tune a pre-trained model or train a new model for for word-level labeling, use 'label'" )
 parser.add_argument("--pretrained_model", type=str, help="Path to a pre-trained model when you are fine-tuning a for POS tagging.")
+parser.add_argument("--pretrained_settings", type=str, help="Path to the settings file for the pre-trained model. This will be loaded and used to override the network parameters. ")
 parser.add_argument("--lm_hidden_size", type=int, default=100, help="Number of hidden units in language model LSTM for next word prediction")
 parser.add_argument("--lm_num_layers", type=int, default=1, help="Number of LSTM layers in the language model layer")
 
@@ -188,6 +190,7 @@ def main(paras):
     """
     :param paras: parameters passed along from argparse
     """
+
     # load data
     train_x, train_lengths, train_y_labels, train_next_word, valid_x, valid_lengths, valid_y_labels, valid_next_word, test_x, test_lengths, test_y_labels, test_next_word, char_vocab, tag_dict, word_vocab = data_iterator.load_morphdata_ud(paras)
 
@@ -221,19 +224,28 @@ def main(paras):
         device = 'cuda'
     else:
         device = 'cpu'
-    model = networks.Tagger(paras, device)
-
 
     if paras.pretrained_model is not None:
+        print("Loading pre-trained model from", paras.pretrained_model)
+        if paras.pretrained_settings is None:
+            raise ValueError("The pre-trained model's settings file is also required")
+        # TODO What parameters should be updateable at fine-tuning time?
+        # Make sure to use the same parameters as the pre-trained model
+        with open(paras.pretrained_settings) as settings_in:
+            settings_json = json.load(settings_in)
+            for k in ['char_type', 'char_embedding_size', 'char_gram', 'char_rec_num_units', 'char_filter_sizes', 'char_number_of_filters', 'char_conv_act']:
+                setattr(paras, k, settings_json[k])
         # Load the pre-trained model, then update its training type parameters
+        model = networks.Tagger(paras, device)
         model.load_state_dict(torch.load(paras.pretrained_model))
         model.paras.training_type = paras.training_type
-        # TODO What other parameters should be updateable at fine-tuning time?
-
     else:
         # Instantiate new model from scratch
         model = networks.Tagger(paras, device)
         model.apply(networks.init_ortho)
+
+    print("Settings:")
+    print(paras)
 
     model.to(device)
 
@@ -257,17 +269,18 @@ def main(paras):
     print("Number of parameters: %s " % (sum_params))
 
     print("Store settings")
+    if not os.path.exists(paras.save_dir) or not os.path.isdir(paras.save_dir):
+        os.mkdir(paras.save_dir)
     start_time_str = time.strftime("%d_%b_%Y_%H_%M_%S")
     save_file_model = paras.save_file + "data_" + start_time_str
     save_file_settings = paras.save_file + "settings_" + start_time_str
     save_file_vocab = paras.save_file + "vocab_" + start_time_str
-    file = codecs.open(os.path.join(paras.save_dir, save_file_settings), "w")
-    file.write(str(vars(paras)) + "\n")
-    file.close()
+    with codecs.open(os.path.join(paras.save_dir, save_file_settings), "w") as settings_file:
+        settings_file.write(json.dumps(vars(paras)))
 
-    file = codecs.open(os.path.join(paras.save_dir, save_file_vocab), "wb")
-    pickle.dump([char_vocab],file)
-    file.close()
+    with codecs.open(os.path.join(paras.save_dir, save_file_vocab), "wb") as vocab_file:
+        pickle.dump([char_vocab],vocab_file)
+
 
     # Use for tracking best model performance and save path
     if paras.training_type == CLF_MODEL:
@@ -278,7 +291,6 @@ def main(paras):
     best_val_accs = []
     best_path = ""
 
-    print(paras)
     print("Started training")
     for epoch in range(paras.num_epochs):
         ##################
