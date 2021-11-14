@@ -23,14 +23,14 @@ np.random.seed(2345)
 #  SETTINGS
 parser = argparse.ArgumentParser(description='Morpho tagging Pytorch version.')
 
-# which type of network
+# which type of network for characters
 parser.add_argument("--char_type", type=str, default="conv", help="Character 'bilstm', 'conv' or 'sum'")
 
 # input
 parser.add_argument("--char_embedding_size", type=int, default=50, help="Character embedding size")
 parser.add_argument("--char_gram", type=int, default=1, help="Character gram")
 # bilstm char
-parser.add_argument("--char_rec_num_units", type=int, default=100, help="Word or char")
+parser.add_argument("--char_rec_num_units", type=int, default=100, help="Size of hidden layers using characters")
 # conv char
 parser.add_argument("--char_filter_sizes", type=int, nargs='+', default=[1,2,3,4,5,6], help="Width of each filter")
 parser.add_argument("--char_number_of_filters", type=int, nargs='+', default=[25,50,75,100,125,150],
@@ -46,7 +46,7 @@ parser.add_argument("--dropout_frac", type=float, default=0., help="Optional dro
 
 # dataset
 parser.add_argument("--language", type=str, default="ru", help="Russian (ru)")
-parser.add_argument("--unique_words", type=int, default=0, help="Use unique words rather than all words")
+parser.add_argument("--unique_words", type=int, default=0, help="Use unique words rather than all words.")
 parser.add_argument("--data_path_ud", type=str, required=True,
                     help="Where can I find the datafiles of UD1.4: *-ud-train.conllu, "
                          "*-ud-dev.conllu and *-ud-test.conllu")
@@ -55,8 +55,8 @@ parser.add_argument("--save_file", type=str, default="tagger_")
 
 # Added arguments for pre-training & fine-tuning
 parser.add_argument("--training_type", type=str, choices=[CLF_MODEL, LANG_MODEL], help="To pre-train a language model, use 'lm'. To fine-tune a pre-trained model or train a new model for for word-level labeling, use 'label'" )
-parser.add_argument("--pretrained_model", type=str, help="Path to a pre-trained model when you are fine-tuning a for POS tagging.", default=None)
-parser.add_argument("--lm_hidden_layers", type=int, default=50, help="Number of hidden units in language model LSTM for next word prediction")
+parser.add_argument("--pretrained_model", type=str, help="Path to a pre-trained model when you are fine-tuning a for POS tagging.")
+parser.add_argument("--lm_hidden_layers", type=int, default=100, help="Number of hidden units in language model LSTM for next word prediction")
 
 def repackage_hidden(h):
     """Wraps hidden states in new Tensors, to detach them from their history.
