@@ -11,8 +11,8 @@ import time
 import codecs
 import pickle
 
-import networks
-import data_iterator
+from . import networks
+from . import data_iterator
 
 CLF_MODEL = "label"
 LANG_MODEL = "lm"
@@ -50,7 +50,7 @@ parser.add_argument("--unique_words", type=int, default=0, help="Use unique word
 parser.add_argument("--data_path_ud", type=str, required=True,
                     help="Where can I find the datafiles of UD1.4: *-ud-train.conllu, "
                          "*-ud-dev.conllu and *-ud-test.conllu")
-parser.add_argument("--save_dir", type=str, required=False,help="Directory to save models")
+parser.add_argument("--save_dir", type=str, required=True,help="Directory to save models")
 parser.add_argument("--save_file", type=str, default="tagger_")
 
 # Added arguments for pre-training & fine-tuning
@@ -63,6 +63,8 @@ def repackage_hidden(h):
     """Wraps hidden states in new Tensors, to detach them from their history.
     See https://github.com/pytorch/examples/blob/3970e068c7f18d2d54db2afee6ddd81ef3f93c24/word_language_model/main.py#L112 and https://discuss.pytorch.org/t/solved-why-we-need-to-detach-variable-which-contains-hidden-representation/1426 for more details.
     """
+    if h is None:
+        return None
     if isinstance(h, torch.Tensor):
         return h.detach()
     else:
@@ -158,7 +160,7 @@ def predict(model, data_iterator, device, is_verbose, paras, labels=None):
         for tagtype_index in range(tags.shape[1]):
             gt = tags[:, tagtype_index]
             gold_labels[tagtype_index].extend(gt)
-            predictions = torch.max(tag_scores[tagtype_index],dim=1)[1].to(device).data.numpy()
+            predictions = torch.max(tag_scores[tagtype_index][0],dim=1)[1].to(device).data.numpy()
             all_predictions[tagtype_index].extend(predictions)
 
             correct_valid[tagtype_index]+=sum(np.equal(gt,predictions))

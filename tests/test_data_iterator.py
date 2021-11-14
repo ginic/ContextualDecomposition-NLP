@@ -1,10 +1,10 @@
-from ..data_iterator import *
-from ..train import parser
+from morpho_tagging.train import parser
+from morpho_tagging.data_iterator import *
 
 TEST_PARAMS = parser.parse_args(["--language", "en", "--data_path_ud", "tests/tiny_test_data", "--save_dir", "noop"])
 
 def test_load_morphdata_us():
-    train_x, train_lengths, train_y, train_next_word, dev_x, dev_lengths, dev_y, dev_next_word, test_x, test_lengths, test_y, test_next_word, char_vocab, all_labels = load_morphdata_ud(TEST_PARAMS, use_sentence_markers=False)
+    train_x, train_lengths, train_y, train_next_word, dev_x, dev_lengths, dev_y, dev_next_word, test_x, test_lengths, test_y, test_next_word, char_vocab, all_labels, word_vocab = load_morphdata_ud(TEST_PARAMS, use_sentence_markers=False, tag_path = "data")
 
     # 86 words in training set
     assert train_x.shape[0] == 86
@@ -26,7 +26,7 @@ def test_load_morphdata_us():
 
 
 def test_load_morphdata_with_sentence_markers():
-    train_x, train_lengths, train_y, train_next_word, dev_x, dev_lengths, dev_y, dev_next_word, test_x, test_lengths, test_y, test_next_word, char_vocab, all_labels = load_morphdata_ud(TEST_PARAMS, use_sentence_markers=True)
+    train_x, train_lengths, train_y, train_next_word, dev_x, dev_lengths, dev_y, dev_next_word, test_x, test_lengths, test_y, test_next_word, char_vocab, all_labels, word_vocab = load_morphdata_ud(TEST_PARAMS, use_sentence_markers=True, tag_path = "data")
 
     # 86 words in training set
     assert train_x.shape[0] == 98

@@ -195,7 +195,7 @@ def read_tags(path, lower=False):
     return tag_dict
 
 
-def load_morphdata_ud(paras, tag_path="../data/", char_vocab=None,  use_sentence_markers=True):
+def load_morphdata_ud(paras, tag_path="data", char_vocab=None,  use_sentence_markers=True):
     """
     :param paras: parameters passed along from argparse
     :param tag_path: directory with the '{paras.language}_tags_ud_filtered.txt' file

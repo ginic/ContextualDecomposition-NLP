@@ -16,11 +16,11 @@ All other necessary files are provided in the data-folder of this project.
 - TODO Add details about pretraining vs fine tuning
 - TODO Test set evaluation is done at the end of tuning
 
-Open a shell a move into the 'morpho_tagging' folder.
+Navigate to the root of this repo (the ContextualDecomposition-NLP folder.)
 The following command can be used to train a model on the UD dataset.
 
 ```
-CUDA_VISIBLE_DEVICES=0 python3 train.py --data_path_ud DATA_PATH_UD --save_dir SAVE_DIR --language LANGUAGE --char_type CONV_OR_BILSTM
+CUDA_VISIBLE_DEVICES=0 python3 -m morpho_tagging.train --data_path_ud DATA_PATH_UD --save_dir SAVE_DIR --language LANGUAGE --char_type CONV_OR_BILSTM
 ```
 
 The most important values to fill in:
@@ -50,11 +50,7 @@ The output will be an overview of the correct/incorrect predictions and attribut
 This is the same algorithm as used in the paper for evaluation.
 
 # Unit tests
-Unit tests can be run using `pytest` from within the `morpho_tagging` directory, e.g.
-```
-$ cd morpho_tagging
-$ pytest
-```
+Unit tests can be run using `python -m pytest` from within the root directory.
 
 # Citation
 Our code is based on following publication's:
