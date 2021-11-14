@@ -11,8 +11,8 @@ import time
 import codecs
 import pickle
 
-from . import networks
-from . import data_iterator
+import networks
+import data_iterator
 
 CLF_MODEL = "label"
 LANG_MODEL = "lm"
@@ -41,7 +41,7 @@ parser.add_argument("--char_conv_act", type=str, default="relu", help="Default i
 parser.add_argument("--batch_size", type=int, default=20, help="Batch size")
 parser.add_argument("--lr", type=float, default=0.001, help="Learning rate")
 parser.add_argument("--num_epochs", type=int, default=100, help="Number of epochs to run")
-parser.add_argument("--dropout_frac", type=float, default=0., help="Optional dropout")
+parser.add_argument("--dropout_frac", type=float, default=0., help="Optional dropout for embeddings")
 
 
 # dataset
@@ -56,7 +56,8 @@ parser.add_argument("--save_file", type=str, default="tagger_")
 # Added arguments for pre-training & fine-tuning
 parser.add_argument("--training_type", type=str, choices=[CLF_MODEL, LANG_MODEL], help="To pre-train a language model, use 'lm'. To fine-tune a pre-trained model or train a new model for for word-level labeling, use 'label'" )
 parser.add_argument("--pretrained_model", type=str, help="Path to a pre-trained model when you are fine-tuning a for POS tagging.")
-parser.add_argument("--lm_hidden_layers", type=int, default=100, help="Number of hidden units in language model LSTM for next word prediction")
+parser.add_argument("--lm_hidden_size", type=int, default=100, help="Number of hidden units in language model LSTM for next word prediction")
+parser.add_argument("--lm_num_layers", type=int, default=1, help="Number of LSTM layers in the language model layer")
 
 def repackage_hidden(h):
     """Wraps hidden states in new Tensors, to detach them from their history.
@@ -98,7 +99,7 @@ def check_new_best(validation_result, prev_best_score, prev_best_path, training_
 
     return is_new_best, best_valid, best_path
 
-def next_word_prediction(model, data_iterator, is_cuda_available, paras):
+def next_word_prediction(model, data_iterator, device):
     """Uses the given model and parameters to predict the next word in each sentence.
     Prints probability and perplexity of data set under the model.
     :param model: pytorch model
@@ -106,16 +107,19 @@ def next_word_prediction(model, data_iterator, is_cuda_available, paras):
     :param is_cuda_available: boolean, whether or not to use GPU
     """
     model.eval()
+    model.zero_grad()
     prediction_probabilities = []
     actual_next_words = []
+    hidden = model.init_lm_hidden()
     for words, tags, lengths in data_iterator:
         actual_next_words.extend(tags)
-        model.zero_grad()
-        word_scores, hidden = model(words, lengths)[0]
-        repackage_hidden(hidden)
-        prediction_probabilities.extend(word_scores)
+        word_scores, hidden = model(words, lengths, hidden)
+        hidden = repackage_hidden(hidden)
+        prediction_probabilities.append(word_scores[0])
 
-    total_loss = nn.CrossEntropyLoss(prediction_probabilities, actual_next_words)
+    all_predictions = torch.stack(prediction_probabilities).squeeze()
+    truth = torch.LongTensor(actual_next_words).to(device).detach()
+    total_loss = nn.CrossEntropyLoss()(all_predictions, truth).detach().numpy()
     data_loss = total_loss / len(actual_next_words)
 
     print("Loss:", data_loss, "Perplexity:", np.exp(data_loss))
@@ -123,7 +127,7 @@ def next_word_prediction(model, data_iterator, is_cuda_available, paras):
     return data_loss
 
 
-def predict(model, data_iterator, is_cuda_available, is_verbose, paras, labels=None):
+def predict(model, data_iterator, device, is_verbose, paras, labels=None):
     """Uses the given model and parameters to predict labels.
     Prints accuracy, count of correct labels and classification metrics for predications on the data iterator.
     Returns list of accuracies (for each tag) and list of counts of correct labels.
@@ -140,7 +144,7 @@ def predict(model, data_iterator, is_cuda_available, is_verbose, paras, labels=N
     # Track total number of valid tags of all types in the entire dataset
     total_valid = 0
     correct_valid = [0 for _ in range(len(paras.tagset_size))]
-
+    hidden = model.init_lm_hidden()
     # Use to store predictions and labels for each tag set, then compute metrics later using all sentences
     all_predictions = [[] * len(paras.tagset_size)]
     gold_labels = [[] * len(paras.tagset_size)]
@@ -148,15 +152,13 @@ def predict(model, data_iterator, is_cuda_available, is_verbose, paras, labels=N
         # set gradients zero
         model.zero_grad()
         # run model
-        tag_scores = model(words, lengths)
+        tag_scores = model(words, lengths, hidden)
+        hidden = repackage_hidden(hidden)
         # calculate loss and backprop
         for tagtype_index in range(tags.shape[1]):
             gt = tags[:, tagtype_index]
             gold_labels[tagtype_index].extend(gt)
-            if is_cuda_available:
-                predictions = torch.max(tag_scores[tagtype_index],dim=1)[1].cuda().data.numpy()
-            else:
-                predictions = torch.max(tag_scores[tagtype_index],dim=1)[1].cpu().data.numpy()
+            predictions = torch.max(tag_scores[tagtype_index],dim=1)[1].to(device).data.numpy()
             all_predictions[tagtype_index].extend(predictions)
 
             correct_valid[tagtype_index]+=sum(np.equal(gt,predictions))
@@ -203,7 +205,7 @@ def main(paras):
     paras.save_file += paras.language + "_"
 
     paras.char_vocab_size = len(char_vocab.vocab)
-    paras.word_vocab_size = len(word_vocab.word_to_index)
+    paras.word_vocab_size = word_vocab.vocab_size()
     paras.tagset_size = dict([(t.index,len(t.values)) for t in tag_dict.values()])
     paras.pad_index = char_vocab.pad_index
 
@@ -213,8 +215,12 @@ def main(paras):
     test_it = data_iterator.DataIterator(test_x, test_lengths, test_y, paras.batch_size)
 
     # make model
-    is_cuda_available = torch.cuda.is_available()
-    model = networks.Tagger(paras, is_cuda_available)
+    if torch.cuda.is_available():
+        device = 'cuda'
+    else:
+        device = 'cpu'
+    model = networks.Tagger(paras, device)
+
 
     if paras.pretrained_model is not None:
         # Load the pre-trained model, then update its training type parameters
@@ -224,13 +230,12 @@ def main(paras):
 
     else:
         # Instantiate new model from scratch
-        model = networks.Tagger(paras, is_cuda_available)
+        model = networks.Tagger(paras, device)
         model.apply(networks.init_ortho)
 
-    if is_cuda_available:
-        model.cuda()
-    else:
-        model.cpu()
+    model.to(device)
+
+    hidden = model.init_lm_hidden()
 
     # loss function {index -> pytorch loss function}
     loss_functions = {}
@@ -285,33 +290,26 @@ def main(paras):
             # set gradients zero
             model.zero_grad()
             # run model (forward pass)
-            tag_scores, hidden = model(sentences, lengths)
+            hidden = repackage_hidden(hidden)
+            tag_scores, hidden = model(sentences, lengths, hidden)
             # calculate loss and backprop
             # List of losses of each example for each label
             loss = []
             if paras.training_type == CLF_MODEL:
                 for tagtype_index in range(tags.shape[1]):
-                    if is_cuda_available:
-                        gt = Variable(torch.LongTensor(tags[:,tagtype_index]).cuda())
-                    else:
-                        gt = Variable(torch.LongTensor(tags[:,tagtype_index]).cpu())
+                    gt = Variable(torch.LongTensor(tags[:,tagtype_index]).to(device))
                     loss.append(loss_functions[tagtype_index](tag_scores[tagtype_index], gt))
             elif paras.training_type == LANG_MODEL:
-                if is_cuda_available:
-                    gt = Variable(torch.LongTensor(tags).cuda())
-                else:
-                    gt = Variable(torch.LongTensor(tags).cpu())
-                loss.append(loss_functions[LANG_MODEL](tag_scores)[0], gt)
-                repackage_hidden(hidden)
+                word_scores = tag_scores[0].squeeze()
+                gt = Variable(torch.LongTensor(tags).to(device))
+                loss.append(loss_functions[LANG_MODEL](word_scores, gt))
 
-            if is_cuda_available:
-                total_loss+=sum([l.data.cuda().numpy() for l in loss])
-            else:
-                total_loss+=sum([l.data.cpu().numpy() for l in loss])
+            total_loss+=sum([l.data.to(device).numpy() for l in loss])
 
             sum(loss).backward()
             optimizer.step()
             end = datetime.now()
+
 
         print("Epoch %s: train loss %s" % (epoch + 1, total_loss / train_it.n_batches))
         print("Epoch train time in minutes:", (end - start).total_seconds()/60)
@@ -321,10 +319,10 @@ def main(paras):
         ##################
         print("Validation results")
         if paras.training_type == CLF_MODEL:
-            correct_valid, val_accs = predict(model, valid_it, is_cuda_available, False, paras)
+            correct_valid, val_accs = predict(model, valid_it, device, False, paras)
             validation_result = sum(correct_valid)
         elif paras.training_type == LANG_MODEL:
-            validation_result = next_word_prediction(model, valid_it, is_cuda_available)
+            validation_result = next_word_prediction(model, valid_it, device)
 
         is_new_best, best_valid, best_path = check_new_best(validation_result, best_valid, best_path, paras.training_type, paras.save_dir, save_file_model, model)
 
@@ -344,9 +342,9 @@ def main(paras):
     print("Evaluating on test set")
     labels = [t.values for t in tag_dict.values()]
     if paras.training_type == CLF_MODEL:
-        test_correct_valid, test_accs = predict(model, test_it, is_cuda_available, True, paras, labels=labels)
+        test_correct_valid, test_accs = predict(model, test_it, device, True, paras, labels=labels)
     elif paras.training_type == LANG_MODEL:
-        test_result = next_word_prediction(model, test_it, is_cuda_available)
+        test_result = next_word_prediction(model, test_it, device)
 
 
 if __name__ == "__main__":

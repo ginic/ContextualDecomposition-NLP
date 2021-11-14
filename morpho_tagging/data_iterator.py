@@ -22,6 +22,9 @@ class WordVocab:
         self.word_to_char_embedding = {}
         self.char_vocab = char_vocab
 
+    def vocab_size(self):
+        return len(self.word_to_index) + 3
+
     def lookup_word(self, word, is_train=False):
         """If a word is missing from the vocab, its added.
         Return (index for word, its character embedding) and increment its count in the corpus.
