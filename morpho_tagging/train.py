@@ -274,12 +274,9 @@ def main(paras):
     start_time_str = time.strftime("%d_%b_%Y_%H_%M_%S")
     save_file_model = paras.save_file + "data_" + start_time_str
     save_file_settings = paras.save_file + "settings_" + start_time_str
-    save_file_vocab = paras.save_file + "vocab_" + start_time_str
+
     with codecs.open(os.path.join(paras.save_dir, save_file_settings), "w") as settings_file:
         settings_file.write(json.dumps(vars(paras)))
-
-    with codecs.open(os.path.join(paras.save_dir, save_file_vocab), "wb") as vocab_file:
-        pickle.dump([char_vocab],vocab_file)
 
 
     # Use for tracking best model performance and save path
@@ -350,6 +347,14 @@ def main(paras):
         print("Best validation loss is:", best_valid)
 
     torch.save(model.state_dict(), os.path.join(paras.save_dir, save_file_model + "_last"))
+
+    save_file_vocab = paras.save_file + "charvocab_" + start_time_str
+    with codecs.open(os.path.join(paras.save_dir, save_file_vocab), "wb") as vocab_file:
+        pickle.dump(char_vocab,vocab_file)
+
+    save_file_wordvocab = paras.save_file + "wordvocab_" + start_time_str
+    with codecs.open(os.path.join(paras.save_dir, save_file_wordvocab), "wb") as vocab_file:
+        pickle.dump(word_vocab, vocab_file)
 
     print("Loading best model from", best_path)
     model.load_state_dict(torch.load(best_path))
