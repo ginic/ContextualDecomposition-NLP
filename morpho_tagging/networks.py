@@ -34,8 +34,10 @@ class Tagger(nn.Module):
                     filter_size, self.paras.char_embedding_size),padding=padding))
                 if self.paras.char_conv_act == "relu":
                     conv.add_module("word_conv_%s_relu" % (i), nn.ReLU())
-                else:
+                elif self.paras.char_conv_act == "tanh":
                     conv.add_module("word_conv_%s_tanh" % (i), nn.Tanh())
+                elif self.paras.char_conv_act == "leakyrelu":
+                    conv.add_module("word_conv_%s_tanh" % (i), nn.LeakyReLU())
 
                 self.char_convs.append(conv)
                 self.char_size += self.paras.char_number_of_filters[i]

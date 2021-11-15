@@ -36,14 +36,14 @@ The most important values to fill in:
 - BATCH_SIZE: each batch is a sequence of words, so batch size is the length of word sequences when training models, defaults to 20
 
 
-## Using pre-trained character embeddings to predict POS tags
+## Using pre-trained character embeddings to train a POS tagger
 Run the script with the `--training_type label` option and give `--pretrained_model PRETRAINED_MODEL` path and `--pretrained_settings PRETRAINED_SETTINGS` file path to the model to load.
 
 ```
 python -m morpho_tagging.train --data_path_ud DATA_UD_OATH --save_dir SAVE_DIR --language en --training_type label --pretrained_model PRETRAINED_MODEL --pretrained_settings PRETRAINED_SETTINGS
 ```
 
-Note that these parameters are overridden from by the pre-trained model, even if you include them in arguments: `['char_type', 'char_embedding_size', 'char_gram', 'char_rec_num_units', 'char_filter_sizes', 'char_number_of_filters', 'char_conv_act']`
+Note that these parameters are overridden by the pre-trained model, even if you include them in arguments (otherwise the dimensions might not match): `['char_type', 'char_embedding_size', 'char_gram', 'char_rec_num_units', 'char_filter_sizes', 'char_number_of_filters', 'char_conv_act']`
 
 
 # Evaluation

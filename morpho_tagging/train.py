@@ -37,7 +37,7 @@ parser.add_argument("--char_rec_num_units", type=int, default=100, help="Size of
 parser.add_argument("--char_filter_sizes", type=int, nargs='+', default=[1,2,3,4,5,6], help="Width of each filter")
 parser.add_argument("--char_number_of_filters", type=int, nargs='+', default=[25,50,75,100,125,150],
                     help="Total number of filters")
-parser.add_argument("--char_conv_act", type=str, default="relu", help="Default is relu, tanh is the other option")
+parser.add_argument("--char_conv_act", type=str, default="relu", help="Default is 'relu', 'tanh' and 'leakyrelu' are other options", choices=["relu", "tanh", "leakyrelu"])
 
 # training
 parser.add_argument("--batch_size", type=int, default=20, help="Batch size")
@@ -55,7 +55,7 @@ parser.add_argument("--save_dir", type=str, required=True,help="Directory to sav
 parser.add_argument("--save_file", type=str, default="tagger_")
 
 # Added arguments for pre-training & fine-tuning
-parser.add_argument("--training_type", type=str, choices=[CLF_MODEL, LANG_MODEL], help="To pre-train a language model, use 'lm'. To fine-tune a pre-trained model or train a new model for for word-level labeling, use 'label'" )
+parser.add_argument("--training_type", type=str, choices=[CLF_MODEL, LANG_MODEL], help="To pre-train a language model, use 'lm'. To fine-tune a pre-trained model or train a new model for for word-level labeling, use 'label'", required=True)
 parser.add_argument("--pretrained_model", type=str, help="Path to a pre-trained model when you are fine-tuning a for POS tagging.")
 parser.add_argument("--pretrained_settings", type=str, help="Path to the settings file for the pre-trained model. This will be loaded and used to override the network parameters. ")
 parser.add_argument("--lm_hidden_size", type=int, default=100, help="Number of hidden units in language model LSTM for next word prediction")
