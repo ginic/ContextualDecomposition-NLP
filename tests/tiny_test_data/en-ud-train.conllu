@@ -1,0 +1,103 @@
+# sent_id = en_partut-ud-3
+# text = Distribution of this license does not create an attorney-client relationship.
+1	Distribution	distribution	NOUN	S	Number=Sing	7	nsubj	_	_
+2	of	of	ADP	E	_	4	case	_	_
+3	this	this	DET	DD	Number=Sing|PronType=Dem	4	det	_	_
+4	license	license	NOUN	S	Number=Sing	1	nmod	_	_
+5	does	do	AUX	VM	Mood=Ind|Number=Sing|Person=3|Tense=Pres|VerbForm=Fin	7	aux	_	_
+6	not	not	PART	PART	Polarity=Neg	7	advmod	_	_
+7	create	create	VERB	V	Mood=Ind|Number=Plur|Tense=Pres|VerbForm=Fin	0	root	_	_
+8	an	a	DET	RI	Definite=Ind|Number=Sing|PronType=Art	12	det	_	_
+9	attorney	attorney	NOUN	S	Number=Sing	12	nmod	_	SpaceAfter=No
+10	-	-	PUNCT	FF	_	9	punct	_	SpaceAfter=No
+11	client	client	NOUN	S	Number=Sing	9	compound	_	_
+12	relationship	relationship	NOUN	S	Number=Sing	7	obj	_	SpaceAfter=No
+13	.	.	PUNCT	FS	_	7	punct	_	_
+
+# sent_id = en_partut-ud-4
+# text = Creative Commons provides this information on an "as-is" basis.
+1	Creative	Creative	PROPN	SP	_	3	nsubj	_	_
+2	Commons	Commons	PROPN	SP	_	1	flat	_	_
+3	provides	provide	VERB	V	Mood=Ind|Number=Sing|Person=3|Tense=Pres|VerbForm=Fin	0	root	_	_
+4	this	this	DET	DD	Number=Sing|PronType=Dem	5	det	_	_
+5	information	information	NOUN	S	Number=Sing	3	obj	_	_
+6	on	on	ADP	E	_	13	case	_	_
+7	an	a	DET	RI	Definite=Ind|Number=Sing|PronType=Art	13	det	_	_
+8	"	"	PUNCT	FB	_	11	punct	_	SpaceAfter=No
+9	as	as	ADP	E	_	11	mark	_	SpaceAfter=No
+10	-	-	PUNCT	FF	_	9	punct	_	SpaceAfter=No
+11	is	be	VERB	V	Mood=Ind|Number=Sing|Person=3|Tense=Pres|VerbForm=Fin	13	amod	_	SpaceAfter=No
+12	"	"	PUNCT	FB	_	11	punct	_	_
+13	basis	basis	NOUN	S	Gender=Masc|Number=Sing	3	obl	_	SpaceAfter=No
+14	.	.	PUNCT	FS	_	3	punct	_	_
+
+# sent_id = en_partut-ud-5
+# text = Creative Commons makes no warranties regarding the information provided, and disclaims liability for damages resulting from its use.
+1	Creative	Creative	PROPN	SP	_	3	nsubj	_	_
+2	Commons	Commons	PROPN	SP	_	1	flat	_	_
+3	makes	make	VERB	V	Mood=Ind|Number=Sing|Person=3|Tense=Pres|VerbForm=Fin	0	root	_	_
+4	no	no	DET	DI	PronType=Ind	5	det	_	_
+5	warranties	warranty	NOUN	S	Number=Plur	3	obj	_	_
+6	regarding	regard	VERB	V	Number=Sing|Tense=Pres|VerbForm=Part	5	acl	_	_
+7	the	the	DET	RD	Definite=Def|PronType=Art	8	det	_	_
+8	information	information	NOUN	S	Number=Sing	6	obj	_	_
+9	provided	provide	VERB	V	Tense=Past|VerbForm=Part	8	acl	_	SpaceAfter=No
+10	,	,	PUNCT	FF	_	12	punct	_	_
+11	and	and	CCONJ	CC	_	12	cc	_	_
+12	disclaims	disclaim	VERB	V	Mood=Ind|Number=Sing|Person=3|Tense=Pres|VerbForm=Fin	3	conj	_	_
+13	liability	liability	NOUN	S	Number=Sing	12	obj	_	_
+14	for	for	ADP	E	_	15	case	_	_
+15	damages	damage	NOUN	S	Number=Plur	13	nmod	_	_
+16	resulting	result	VERB	V	Number=Sing|Tense=Pres|VerbForm=Part	15	acl	_	_
+17	from	from	ADP	E	_	19	case	_	_
+18	its	its	DET	AP	Number=Sing|Poss=Yes|PronType=Prs	19	nmod:poss	_	_
+19	use	use	NOUN	S	Number=Sing	16	obl	_	SpaceAfter=No
+20	.	.	PUNCT	FS	_	3	punct	_	_
+
+# sent_id = en_partut-ud-6
+# text = License.
+1	License	license	NOUN	S	Number=Sing	0	root	_	SpaceAfter=No
+2	.	.	PUNCT	FS	_	1	punct	_	_
+
+# sent_id = en_partut-ud-8
+# text = The work is protected by copyright and/or other applicable law.
+1	The	the	DET	RD	Definite=Def|PronType=Art	2	det	_	_
+2	work	work	NOUN	S	Number=Sing	4	nsubj:pass	_	_
+3	is	be	AUX	VA	Mood=Ind|Number=Sing|Person=3|Tense=Pres|VerbForm=Fin	4	aux:pass	_	_
+4	protected	protect	VERB	V	Tense=Past|VerbForm=Part	0	root	_	_
+5	by	by	ADP	E	_	6	case	_	_
+6	copyright	copyright	NOUN	S	Number=Sing	4	obl	_	_
+7	and	and	CCONJ	CC	_	12	cc	_	SpaceAfter=No
+8	/	/	PUNCT	FF	_	9	punct	_	SpaceAfter=No
+9	or	or	CCONJ	CC	_	7	conj	_	_
+10	other	other	ADJ	A	Degree=Pos	12	amod	_	_
+11	applicable	applicable	ADJ	A	Degree=Pos	12	amod	_	_
+12	law	law	NOUN	S	Number=Sing	6	conj	_	SpaceAfter=No
+13	.	.	PUNCT	FS	_	4	punct	_	_
+
+# sent_id = en_partut-ud-10
+# text = By exercising any rights to the work provided here, you accept and agree to be bound by the terms of this license.
+1	By	by	ADP	E	_	2	mark	_	_
+2	exercising	exercise	VERB	V	VerbForm=Ger	12	advcl	_	_
+3	any	any	DET	DI	PronType=Ind	4	det	_	_
+4	rights	right	NOUN	S	Number=Plur	2	obj	_	_
+5	to	to	ADP	E	_	7	case	_	_
+6	the	the	DET	RD	Definite=Def|PronType=Art	7	det	_	_
+7	work	work	NOUN	S	Number=Sing	2	obl	_	_
+8	provided	provide	VERB	V	Tense=Past|VerbForm=Part	7	acl	_	_
+9	here	here	ADV	B	_	8	advmod	_	SpaceAfter=No
+10	,	,	PUNCT	FF	_	2	punct	_	_
+11	you	you	PRON	PE	Person=2|PronType=Prs	12	nsubj	_	_
+12	accept	accept	VERB	V	Mood=Ind|Number=Sing|Person=2|Tense=Pres|VerbForm=Fin	0	root	_	_
+13	and	and	CCONJ	CC	_	14	cc	_	_
+14	agree	agree	VERB	V	Mood=Ind|Number=Sing|Person=2|Tense=Pres|VerbForm=Fin	12	conj	_	_
+15	to	to	PART	PART	_	17	mark	_	_
+16	be	be	AUX	VA	VerbForm=Inf	17	aux:pass	_	_
+17	bound	bind	VERB	V	Tense=Past|VerbForm=Part	14	ccomp	_	_
+18	by	by	ADP	E	_	20	case	_	_
+19	the	the	DET	RD	Definite=Def|PronType=Art	20	det	_	_
+20	terms	term	NOUN	S	Number=Plur	17	obl	_	_
+21	of	of	ADP	E	_	23	case	_	_
+22	this	this	DET	DD	Number=Sing|PronType=Dem	23	det	_	_
+23	license	license	NOUN	S	Number=Sing	20	nmod	_	SpaceAfter=No
+24	.	.	PUNCT	FS	_	12	punct	_	_
