@@ -123,6 +123,39 @@ class Tagger(nn.Module):
 
         return tag_space, None
 
+    def get_word_embeddings(self, words, lengths):
+        words_inputs_chars = Variable(torch.LongTensor(words).to(self.device))
+
+        if self.paras.char_type == "bilstm":
+            # Embeddings for words in each sentence
+            emb = self.char_embeddings(words_inputs_chars)
+
+            # Used for handling sequences of variable length
+            packed_input = pack_padded_sequence(emb, lengths, batch_first=True, enforce_sorted=False)
+
+            lstm_out, (char_hidden_out, char_cell_out) = self.char_lstm(packed_input)
+
+            # Concatenate forward and backward hidden states into a single vector for each word
+            char_hidden_out = char_hidden_out.transpose(1, 0).contiguous()
+            char_hidden_out = char_hidden_out.view(char_hidden_out.size(0), -1)
+
+            return char_hidden_out
+
+        elif self.paras.char_type == "conv":
+
+            # This is the 'max over time filter' where the word's representation is selected
+            x = self.char_embeddings(words_inputs_chars)
+            emb = x.unsqueeze(1)
+            conv_outs = []
+            for char_conv in self.char_convs:
+                x = char_conv(emb)
+                x_size = x.size()
+                x = torch.max(x.view(x_size[0], x_size[1], -1), dim=2)[0]
+                conv_outs.append(x)
+
+            # Concatenates the given sequence of seq tensors in the given dimension
+            return torch.cat(conv_outs, dim=1)
+
 
 def init_ortho(m):
     if type(m) is nn.LSTM:
