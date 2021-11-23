@@ -1,36 +1,33 @@
 """
 Functions for providing visualizations for neural character language model comparisons.
 """
-
-import json
-import pickle
 import string
 
-import matplotlib.pyplot as plt
 import numpy as np
-import seaborn as sns
 import pandas as pd
 
 from sklearn.decomposition import PCA
 from sklearn.manifold import TSNE
 from sklearn.metrics.pairwise import cosine_similarity
 
-import torch
-import torch.nn
-
-from morpho_tagging.networks import *
 
 def get_char_class(char):
-    """Returns 'digit', 'upper', 'lower', 'punct' or 'special'
+    """Returns 'digit', 'Latin upper', 'Latin lower', 'Cyrillic upper', 'Cyrillic lower', 'punct' or 'special'
     """
+    cyrillic_upper = "АБВГДЕЖЗИЙКЛМНОПРСТУФХЦЧШЩЬЮЯ"
+    cyrillic_lower = "абвгдежзийклмнопрстуфхцчшщьюя"
     if char.isdigit():
         return 'digit'
     if char in ["<unk>", "<pad>", "<special_token>", "<eow>", "<sow>", "<eos>", "<sos>"]:
         return 'special'
+    if char in cyrillic_upper:
+        return "Cyrillic upper"
+    if char in cyrillic_lower:
+        return "Cyrillic lower"
     if char.isupper():
-        return 'upper'
+        return 'Latin upper'
     if char.islower():
-        return 'lower'
+        return 'Latin lower'
     if char in string.punctuation:
         return 'punctuation'
     else:
@@ -53,7 +50,7 @@ def build_visualization_dataframe(char_embedding_weights, char_vocab):
 
     char_plot_df = pd.DataFrame.from_records(entries, columns=["char", "embedding_index", "char_class", "pca_x", "pca_y", "tsne_x", "tsne_y"])
 
-    return char_plot_df
+    return char_plot_df, char_pca_proj, char_tsne_proj
 
 def get_word_embedding_input_batch(word_vocab, char_vocab, model, word_embedding_size):
     """Returns the embeddings as (word_vocab_size, embedding_size) np array, where the
