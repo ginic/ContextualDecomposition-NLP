@@ -230,6 +230,7 @@ def main(paras):
         if paras.pretrained_settings is None:
             raise ValueError("The pre-trained model's settings file is also required")
         # TODO What parameters should be updateable at fine-tuning time?
+
         # Make sure to use the same parameters as the pre-trained model
         with open(paras.pretrained_settings) as settings_in:
             settings_json = json.load(settings_in)
@@ -237,7 +238,10 @@ def main(paras):
                 setattr(paras, k, settings_json[k])
         # Load the pre-trained model, then update its training type parameters
         model = networks.Tagger(paras, device)
-        model.load_state_dict(torch.load(paras.pretrained_model))
+        if device == 'cuda':
+            model.load_state_dict(torch.load(paras.pretrained_model))
+        else:
+            model.load_state_dict(torch.load(paras.pretrained_model, map_location=torch.device('cpu')))
         model.paras.training_type = paras.training_type
     else:
         # Instantiate new model from scratch
